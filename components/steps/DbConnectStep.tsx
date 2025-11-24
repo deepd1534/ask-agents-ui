@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight, ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react';
+import { ArrowRight, ArrowLeft, CheckCircle2, AlertCircle, Database, ChevronDown } from 'lucide-react';
 import { Button, Input, Card } from '../ui/Common';
 import { WizardState } from '../../types';
 import { postgresApi, ApiError } from '../../services/api';
@@ -11,10 +11,23 @@ interface DbConnectStepProps {
   onBack: () => void;
 }
 
+const DATA_SOURCES = [
+  { id: 'postgres', label: 'PostgreSQL Database', group: 'Databases', disabled: false },
+  { id: 'mysql', label: 'MySQL (Coming Soon)', group: 'Databases', disabled: true },
+  { id: 'mssql', label: 'Microsoft SQL Server (Coming Soon)', group: 'Databases', disabled: true },
+  { id: 'oracle', label: 'Oracle DB (Coming Soon)', group: 'Databases', disabled: true },
+  { id: 'mongo', label: 'MongoDB (Coming Soon)', group: 'NoSQL', disabled: true },
+  { id: 'snowflake', label: 'Snowflake (Coming Soon)', group: 'Warehouses', disabled: true },
+  { id: 'csv', label: 'Upload CSV File (Coming Soon)', group: 'Files', disabled: true },
+  { id: 'json', label: 'Upload JSON File (Coming Soon)', group: 'Files', disabled: true },
+  { id: 'excel', label: 'Upload Excel File (Coming Soon)', group: 'Files', disabled: true },
+];
+
 export const DbConnectStep: React.FC<DbConnectStepProps> = ({ data, updateData, onNext, onBack }) => {
   const [isTesting, setIsTesting] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [selectedSource, setSelectedSource] = useState('postgres');
 
   const handleTestConnection = async () => {
     setIsTesting(true);
@@ -47,11 +60,34 @@ export const DbConnectStep: React.FC<DbConnectStepProps> = ({ data, updateData, 
   return (
     <div className="max-w-2xl mx-auto animate-fade-in">
       <div className="mb-8 text-center">
-        <h2 className="text-3xl font-bold text-slate-900 mb-2">Connect Your Database</h2>
-        <p className="text-slate-500">Securely connect to your PostgreSQL instance to fetch schema.</p>
+        <h2 className="text-3xl font-bold text-slate-900 mb-2">Connect Your Data</h2>
+        <p className="text-slate-500">Select your data source and configure the connection details.</p>
       </div>
 
       <Card className="shadow-supreme border-0">
+        
+        {/* Source Selection Dropdown */}
+        <div className="mb-8 border-b border-slate-100 pb-8">
+           <label className="text-sm font-semibold text-slate-700 ml-1 mb-2 block">Data Source Type</label>
+           <div className="relative group">
+              <select
+                className="w-full appearance-none pl-12 pr-10 py-3.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 shadow-sm cursor-pointer transition-all hover:border-brand-300 disabled:bg-slate-50"
+                value={selectedSource}
+                onChange={(e) => setSelectedSource(e.target.value)}
+              >
+                {DATA_SOURCES.map((source) => (
+                  <option key={source.id} value={source.id} disabled={source.disabled}>
+                    {source.label}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 p-1 bg-brand-50 rounded-md">
+                 <Database className="w-4 h-4 text-brand-600" />
+              </div>
+              <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none group-hover:text-brand-500 transition-colors" />
+           </div>
+        </div>
+
         <div className="flex items-center gap-6 mb-8 pb-6 border-b border-slate-100">
            {/* PostgreSQL Logo Asset */}
            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-blue-900/10 ring-1 ring-slate-100 overflow-hidden relative group p-1.5">
