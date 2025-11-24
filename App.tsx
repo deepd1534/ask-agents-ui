@@ -12,6 +12,7 @@ const INITIAL_STATE: WizardState = {
   orgName: '',
   projectName: '',
   description: '',
+  domain: '',
   dbHost: 'db.production.internal',
   dbPort: '5432',
   dbUser: '',

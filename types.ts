@@ -19,6 +19,7 @@ export interface WizardState {
   orgName: string;
   projectName: string;
   description: string;
+  domain?: string;
 
   // Step 2: DB Connection
   dbHost: string;

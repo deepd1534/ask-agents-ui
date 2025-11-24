@@ -1,5 +1,5 @@
-import React from 'react';
-import { ArrowRight, Building2, Briefcase, LayoutTemplate, Sparkles, Activity } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ArrowRight, Building2, Briefcase, LayoutTemplate, Sparkles, Activity, ChevronDown, Tag } from 'lucide-react';
 import { Button, Input, Card } from '../ui/Common';
 import { WizardState } from '../../types';
 
@@ -9,8 +9,43 @@ interface OrgDetailsStepProps {
   onNext: () => void;
 }
 
+const DOMAINS = [
+  'Retail & E-Commerce',
+  'Healthcare & Life Sciences',
+  'Financial Services',
+  'Manufacturing & Industry',
+  'Technology & SaaS',
+  'Education & Research',
+  'Logistics & Supply Chain',
+  'Media & Entertainment',
+  'Government & Public Sector',
+  'Real Estate'
+];
+
 export const OrgDetailsStep: React.FC<OrgDetailsStepProps> = ({ data, updateData, onNext }) => {
   const isFormValid = data.orgName && data.projectName;
+  
+  // Determine if the current domain is a custom one (not in the list and not empty)
+  const isInitialCustom = !!data.domain && !DOMAINS.includes(data.domain);
+  const [showCustomInput, setShowCustomInput] = useState(isInitialCustom);
+
+  // Sync state if data.domain changes externally
+  useEffect(() => {
+    if (data.domain && !DOMAINS.includes(data.domain) && data.domain !== '') {
+        setShowCustomInput(true);
+    }
+  }, [data.domain]);
+
+  const handleDomainSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    if (value === 'other') {
+        setShowCustomInput(true);
+        updateData({ domain: '' });
+    } else {
+        setShowCustomInput(false);
+        updateData({ domain: value });
+    }
+  };
 
   return (
     <div className="animate-fade-in max-w-6xl mx-auto">
@@ -41,6 +76,36 @@ export const OrgDetailsStep: React.FC<OrgDetailsStepProps> = ({ data, updateData
                   onChange={(e) => updateData({ projectName: e.target.value })}
                   className="text-lg"
                 />
+
+                {/* Domain Selection */}
+                <div className="flex flex-col gap-1.5">
+                    <label className="text-sm font-semibold text-slate-700 ml-1">Industry / Domain</label>
+                    <div className="relative group">
+                        <select
+                            className={`w-full appearance-none px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all shadow-sm hover:border-brand-300 cursor-pointer ${!data.domain && !showCustomInput ? 'text-slate-400' : ''}`}
+                            value={showCustomInput ? 'other' : (data.domain || '')}
+                            onChange={handleDomainSelect}
+                        >
+                            <option value="" disabled>Select an Industry...</option>
+                            {DOMAINS.map(d => (
+                                <option key={d} value={d} className="text-slate-900">{d}</option>
+                            ))}
+                            <option value="other" className="font-semibold text-brand-600">Other (Custom)...</option>
+                        </select>
+                        <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none group-hover:text-brand-500 transition-colors" />
+                    </div>
+
+                    {showCustomInput && (
+                        <div className="animate-fade-in-up mt-1">
+                            <Input 
+                                placeholder="Enter specific domain..." 
+                                value={data.domain}
+                                onChange={(e) => updateData({ domain: e.target.value })}
+                                autoFocus
+                            />
+                        </div>
+                    )}
+                </div>
               </div>
               
               <div className="flex flex-col gap-2">
@@ -109,7 +174,15 @@ export const OrgDetailsStep: React.FC<OrgDetailsStepProps> = ({ data, updateData
                 
                 <div className="p-8 space-y-6 flex-1">
                   <div>
-                    <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2">Project Preview</h3>
+                    <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Project Preview</h3>
+                        {data.domain && (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-brand-50 text-brand-700 border border-brand-100/50">
+                                <Tag className="w-3 h-3" />
+                                {data.domain}
+                            </span>
+                        )}
+                    </div>
                     <h3 className="text-2xl font-bold text-slate-900 leading-tight break-words">
                         {data.orgName || 'New Organization'}
                     </h3>
