@@ -44,6 +44,18 @@ interface ColumnsResponse {
   columns: ColumnData[];
 }
 
+interface ForeignKeyInfo {
+  column_name: string;
+  foreign_table_name: string;
+  foreign_column_name: string;
+  foreign_table_schema: string;
+}
+
+interface ForeignKeysResponse {
+  table: string;
+  foreign_keys: ForeignKeyInfo[];
+}
+
 interface AiColumnDesc {
   name: string;
   description: string;
@@ -65,6 +77,7 @@ interface GraphColumnProperties {
   type: string;
   is_primary_key?: boolean;
   is_foreign_key?: boolean;
+  foreign_key_to?: string;
 }
 
 interface GraphColumn {
@@ -138,6 +151,16 @@ export const postgresApi = {
       isPrimaryKey: col.constraints?.includes('PRIMARY KEY'),
       isForeignKey: col.constraints?.includes('FOREIGN KEY'),
     }));
+  },
+
+  getForeignKeys: async (connectionId: string, table: string, schema: string) => {
+    const response = await fetch(
+      `${API_BASE_URL}/postgres/tables/${table}/foreign_keys?schema_name=${schema}`,
+      {
+        headers: { 'X-Connection-ID': connectionId },
+      }
+    );
+    return handleResponse<ForeignKeysResponse>(response);
   },
 };
 

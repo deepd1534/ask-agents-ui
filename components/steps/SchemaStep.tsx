@@ -118,8 +118,19 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
 
     try {
       setLoadingColumns(prev => new Set(prev).add(tableId));
-      const columnsRaw = await postgresApi.getColumns(connectionId, tableId, selectedSchema);
       
+      const [columnsRaw, foreignKeysRes] = await Promise.all([
+        postgresApi.getColumns(connectionId, tableId, selectedSchema),
+        postgresApi.getForeignKeys(connectionId, tableId, selectedSchema)
+      ]);
+      
+      const fkMap = new Map<string, string>();
+      if (foreignKeysRes?.foreign_keys) {
+          foreignKeysRes.foreign_keys.forEach(fk => {
+              fkMap.set(fk.column_name, `${fk.foreign_table_name}.${fk.foreign_column_name}`);
+          });
+      }
+
       // Merge with AI metadata if available in cache
       const aiData = aiMetadataRef.current[tableId];
       
@@ -130,10 +141,17 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
       }
 
       const columns = columnsRaw.map(col => {
+          const fkRef = fkMap.get(col.name);
+          const columnWithFk = {
+              ...col,
+              isForeignKey: col.isForeignKey || !!fkRef,
+              foreignKeyReference: fkRef
+          };
+
           if (aiData?.columns[col.name]) {
-              return { ...col, description: aiData.columns[col.name] };
+              return { ...columnWithFk, description: aiData.columns[col.name] };
           }
-          return col;
+          return columnWithFk;
       });
       
       const updatedTables = data.tables.map(t => 
@@ -595,7 +613,7 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
                                                                 </span>
                                                             )}
                                                             {col.isForeignKey && (
-                                                                <span className="flex items-center justify-center w-6 h-6 rounded-md bg-blue-100 text-blue-600 cursor-help" title="Foreign Key">
+                                                                <span className="flex items-center justify-center w-6 h-6 rounded-md bg-blue-100 text-blue-600 cursor-help" title={`Foreign Key${col.foreignKeyReference ? ': ' + col.foreignKeyReference : ''}`}>
                                                                     <LinkIcon className="w-3.5 h-3.5" />
                                                                 </span>
                                                             )}
