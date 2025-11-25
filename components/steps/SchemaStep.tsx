@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { ArrowRight, ArrowLeft, ChevronRight, Wand2, Database, KeyRound, Link as LinkIcon, Table2, Info, ChevronDown, Loader2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ArrowRight, ArrowLeft, ChevronRight, Wand2, Database, KeyRound, Link as LinkIcon, Table2, Info, ChevronDown, Loader2, RefreshCw, Sparkles, Bot } from 'lucide-react';
 import { Button, Card } from '../ui/Common';
 import { WizardState, Column, Table } from '../../types';
 import { postgresApi } from '../../services/api';
@@ -14,6 +14,7 @@ interface SchemaStepProps {
 export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext, onBack }) => {
   const [expandedTableId, setExpandedTableId] = useState<string | null>(null);
   const [autofilling, setAutofilling] = useState<string | null>(null);
+  const [isBatchTableLoading, setIsBatchTableLoading] = useState(false);
   
   // State for API data
   const [schemas, setSchemas] = useState<string[]>([]);
@@ -74,7 +75,7 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
     };
 
     fetchTables();
-  }, [connectionId, selectedSchema]); // Removed updateData from deps to avoid loop if not handled carefully, typically updateData is stable
+  }, [connectionId, selectedSchema]);
 
   const fetchColumnsForTable = async (tableId: string) => {
     if (!connectionId) return;
@@ -136,13 +137,20 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
     updateData({ tables: updatedTables });
   };
 
+  const generateMockDescription = (name: string, type: 'table' | 'column') => {
+    const formattedName = name.replace(/_/g, ' ').toLowerCase();
+    if (type === 'table') {
+        return `Stores records for ${formattedName}, including unique identifiers and associated metadata.`;
+    }
+    return `Represents the ${formattedName} of the entity.`;
+  };
+
   const handleTableAiAutofill = (tableId: string) => {
     setAutofilling(`TABLE-${tableId}`);
-    // Mock AI delay
     setTimeout(() => {
         const table = data.tables.find(t => t.id === tableId);
         const name = table?.name || '';
-        const aiText = `Stores records for ${name.replace(/_/g, ' ').toLowerCase()}, including unique identifiers and associated metadata.`;
+        const aiText = generateMockDescription(name, 'table');
         updateTableDescription(tableId, aiText);
         setAutofilling(null);
     }, 1200);
@@ -150,7 +158,6 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
 
   const handleAiAutofill = (tableId: string, column: Column) => {
     setAutofilling(`${tableId}-${column.name}`);
-    // Mock AI delay for now as there isn't an explicit endpoint for this yet
     setTimeout(() => {
         let aiText = `Automatically inferred: This represents the ${column.name.replace(/_/g, ' ')} of the ${data.tables.find(t => t.id === tableId)?.name}.`;
         if (column.isPrimaryKey) aiText = "Unique primary identifier.";
@@ -159,6 +166,41 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
         updateColumnDescription(tableId, column.name, aiText);
         setAutofilling(null);
     }, 800);
+  };
+
+  const handleBatchTableAutofill = () => {
+    setIsBatchTableLoading(true);
+    setTimeout(() => {
+        const updatedTables = data.tables.map(t => ({
+            ...t,
+            description: t.description || generateMockDescription(t.name, 'table')
+        }));
+        updateData({ tables: updatedTables });
+        setIsBatchTableLoading(false);
+    }, 1500);
+  };
+
+  const handleBatchColumnAutofill = (tableId: string) => {
+    setAutofilling(`BATCH-COL-${tableId}`);
+    setTimeout(() => {
+        const table = data.tables.find(t => t.id === tableId);
+        if(table) {
+             const updatedColumns = table.columns.map(col => {
+                if (col.description) return col;
+                
+                let aiText = `Automatically inferred: This represents the ${col.name.replace(/_/g, ' ')} of the ${table.name}.`;
+                if (col.isPrimaryKey) aiText = "Unique primary identifier.";
+                if (col.isForeignKey) aiText = "Reference to external entity.";
+                return { ...col, description: aiText };
+             });
+             
+             const updatedTables = data.tables.map(t => 
+                t.id === tableId ? { ...t, columns: updatedColumns } : t
+             );
+             updateData({ tables: updatedTables });
+        }
+        setAutofilling(null);
+    }, 1500);
   };
 
   const selectedCount = data.tables.filter(t => t.selected).length;
@@ -181,24 +223,41 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
         {/* Left Sidebar: Table List */}
         <div className="lg:w-1/3 flex-shrink-0 sticky top-6">
           <Card className="shadow-supreme border-0" noPadding>
-            <div className="p-5 border-b border-slate-100 bg-slate-50/50">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Schema Source</label>
-                <div className="relative group">
-                    <select
-                        className="w-full appearance-none pl-10 pr-8 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 shadow-sm cursor-pointer transition-all hover:border-brand-300 disabled:opacity-50"
-                        value={selectedSchema}
-                        onChange={(e) => setSelectedSchema(e.target.value)}
-                        disabled={isLoadingSchemas}
-                    >
-                        {schemas.length > 0 ? (
-                            schemas.map(s => <option key={s} value={s}>{s}</option>)
-                        ) : (
-                             <option>Loading schemas...</option>
-                        )}
-                    </select>
-                    <Database className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-600 pointer-events-none group-hover:scale-110 transition-transform" />
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <div className="p-5 border-b border-slate-100 bg-slate-50/50 space-y-4">
+                <div>
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Schema Source</label>
+                    <div className="relative group">
+                        <select
+                            className="w-full appearance-none pl-10 pr-8 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 shadow-sm cursor-pointer transition-all hover:border-brand-300 disabled:opacity-50"
+                            value={selectedSchema}
+                            onChange={(e) => setSelectedSchema(e.target.value)}
+                            disabled={isLoadingSchemas}
+                        >
+                            {schemas.length > 0 ? (
+                                schemas.map(s => <option key={s} value={s}>{s}</option>)
+                            ) : (
+                                <option>Loading schemas...</option>
+                            )}
+                        </select>
+                        <Database className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-600 pointer-events-none group-hover:scale-110 transition-transform" />
+                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    </div>
                 </div>
+
+                {data.tables.length > 0 && (
+                     <button 
+                        onClick={handleBatchTableAutofill}
+                        disabled={isBatchTableLoading}
+                        className="w-full py-2.5 px-4 bg-white border border-brand-200 rounded-xl flex items-center justify-center gap-2 text-sm font-bold text-brand-600 hover:bg-brand-50 hover:shadow-sm transition-all disabled:opacity-50"
+                     >
+                         {isBatchTableLoading ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                         ) : (
+                            <Bot className="w-4 h-4" />
+                         )}
+                         {isBatchTableLoading ? 'Generating...' : 'Smart Fill All Descriptions'}
+                     </button>
+                )}
             </div>
             
             <div className="divide-y divide-slate-100 max-h-[600px] overflow-y-auto custom-scrollbar relative min-h-[200px]">
@@ -291,7 +350,7 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
                                     </div>
                                     
                                     {/* Table Description Input */}
-                                    <div className="flex gap-3">
+                                    <div className="flex gap-3 group/input relative">
                                         <input
                                             className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all shadow-sm hover:bg-white hover:border-brand-300"
                                             placeholder={`Add a description for the ${table.name} table...`}
@@ -301,22 +360,44 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
                                         <button 
                                             onClick={() => handleTableAiAutofill(table.id)}
                                             disabled={!!autofilling}
-                                            className={`px-4 py-2.5 rounded-xl border transition-all flex items-center gap-2 font-bold text-xs uppercase tracking-wide ${
-                                                autofilling === `TABLE-${table.id}`
-                                                ? 'bg-brand-50 text-brand-600 border-brand-200' 
-                                                : 'border-slate-200 bg-white text-slate-500 hover:bg-brand-50 hover:border-brand-200 hover:text-brand-600 hover:shadow-sm'
-                                            }`}
-                                            title="Auto-generate description with AI"
+                                            className={`px-4 py-2.5 rounded-xl border transition-all flex items-center gap-2 font-bold text-xs uppercase tracking-wide
+                                                ${table.description 
+                                                    ? 'opacity-0 group-hover/input:opacity-100 bg-white text-brand-600 border-brand-200 shadow-md absolute right-0 top-0 bottom-0 z-10' 
+                                                    : 'border-slate-200 bg-white text-slate-500 hover:bg-brand-50 hover:border-brand-200 hover:text-brand-600 hover:shadow-sm'
+                                                }
+                                                ${autofilling === `TABLE-${table.id}` ? 'bg-brand-50 text-brand-600 border-brand-200 opacity-100' : ''}
+                                            `}
+                                            title={table.description ? "Regenerate description" : "Auto-generate description"}
                                         >
-                                            <Wand2 className={`w-4 h-4 ${autofilling === `TABLE-${table.id}` ? 'animate-spin' : ''}`} />
-                                            {autofilling === `TABLE-${table.id}` ? 'Gen...' : 'AI Gen'}
+                                            {autofilling === `TABLE-${table.id}` ? (
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                            ) : table.description ? (
+                                                <RefreshCw className="w-4 h-4" />
+                                            ) : (
+                                                <Wand2 className="w-4 h-4" />
+                                            )}
+                                            {table.description ? (autofilling === `TABLE-${table.id}` ? 'Regen...' : 'Regen') : (autofilling === `TABLE-${table.id}` ? 'Gen...' : 'AI Gen')}
                                         </button>
                                     </div>
                                 </div>
                                 
-                                <div className="flex-none px-6 py-2.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-xs font-bold uppercase tracking-wider text-slate-400">
-                                    <span>Column Details</span>
-                                    <span>Description</span>
+                                <div className="flex-none px-6 py-2.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Column Details</span>
+                                    
+                                    {table.columns.length > 0 && (
+                                        <button 
+                                            onClick={() => handleBatchColumnAutofill(table.id)}
+                                            disabled={!!autofilling && autofilling.startsWith('BATCH')}
+                                            className="flex items-center gap-1.5 text-xs font-bold text-brand-600 hover:text-brand-700 transition-colors disabled:opacity-50"
+                                        >
+                                            {autofilling === `BATCH-COL-${table.id}` ? (
+                                                <Loader2 className="w-3 h-3 animate-spin" />
+                                            ) : (
+                                                <Sparkles className="w-3 h-3" />
+                                            )}
+                                            Smart Fill All
+                                        </button>
+                                    )}
                                 </div>
 
                                 {/* Scrollable Columns List */}
@@ -347,7 +428,7 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
                                                     </div>
                                                 </div>
                                                 
-                                                <div className="flex-1 flex gap-3">
+                                                <div className="flex-1 flex gap-3 group/input relative">
                                                     <input
                                                         className="flex-1 px-4 py-3 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all group-hover:border-slate-300"
                                                         placeholder={`Description for ${col.name}...`}
@@ -356,14 +437,22 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
                                                     />
                                                     <button 
                                                         onClick={() => handleAiAutofill(table.id, col)}
-                                                        className={`p-3 rounded-xl border transition-all relative overflow-hidden flex-shrink-0 ${
-                                                            autofilling === `${table.id}-${col.name}` 
-                                                            ? 'bg-brand-50 text-brand-600 border-brand-200' 
-                                                            : 'border-slate-200 bg-white text-slate-400 hover:bg-brand-50 hover:border-brand-200 hover:text-brand-600 hover:shadow-sm'
-                                                        }`}
-                                                        title="Auto-generate with AI"
+                                                        className={`p-3 rounded-xl border transition-all flex-shrink-0 flex items-center justify-center
+                                                            ${col.description 
+                                                                ? 'opacity-0 group-hover/input:opacity-100 bg-white text-brand-600 border-brand-200 shadow-md absolute right-0 top-0 bottom-0 z-10 w-12' 
+                                                                : 'border-slate-200 bg-white text-slate-400 hover:bg-brand-50 hover:border-brand-200 hover:text-brand-600 hover:shadow-sm'
+                                                            }
+                                                            ${autofilling === `${table.id}-${col.name}` ? 'bg-brand-50 text-brand-600 border-brand-200 opacity-100' : ''}
+                                                        `}
+                                                        title={col.description ? "Regenerate" : "Auto-generate"}
                                                     >
-                                                        <Wand2 className={`w-4.5 h-4.5 ${autofilling === `${table.id}-${col.name}` ? 'animate-spin' : ''}`} />
+                                                         {autofilling === `${table.id}-${col.name}` ? (
+                                                            <Loader2 className="w-4.5 h-4.5 animate-spin" />
+                                                         ) : col.description ? (
+                                                            <RefreshCw className="w-4.5 h-4.5" />
+                                                         ) : (
+                                                            <Wand2 className="w-4.5 h-4.5" />
+                                                         )}
                                                     </button>
                                                 </div>
                                             </div>
