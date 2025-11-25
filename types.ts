@@ -12,6 +12,7 @@ export interface Table {
   selected: boolean;
   columns: Column[];
   loaded?: boolean; // Track if columns have been fetched
+  description?: string;
 }
 
 export interface WizardState {

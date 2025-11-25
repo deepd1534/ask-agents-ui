@@ -129,6 +129,25 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
     updateData({ tables: updatedTables });
   };
 
+  const updateTableDescription = (tableId: string, desc: string) => {
+    const updatedTables = data.tables.map(t =>
+      t.id === tableId ? { ...t, description: desc } : t
+    );
+    updateData({ tables: updatedTables });
+  };
+
+  const handleTableAiAutofill = (tableId: string) => {
+    setAutofilling(`TABLE-${tableId}`);
+    // Mock AI delay
+    setTimeout(() => {
+        const table = data.tables.find(t => t.id === tableId);
+        const name = table?.name || '';
+        const aiText = `Stores records for ${name.replace(/_/g, ' ').toLowerCase()}, including unique identifiers and associated metadata.`;
+        updateTableDescription(tableId, aiText);
+        setAutofilling(null);
+    }, 1200);
+  };
+
   const handleAiAutofill = (tableId: string, column: Column) => {
     setAutofilling(`${tableId}-${column.name}`);
     // Mock AI delay for now as there isn't an explicit endpoint for this yet
@@ -252,9 +271,9 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
 
                         return (
                             <div className="flex flex-col h-full animate-fade-in">
-                                {/* Fixed Header */}
+                                {/* Fixed Header with Table Details */}
                                 <div className="flex-none p-6 border-b border-slate-100 bg-white z-10">
-                                    <div className="flex items-center gap-5">
+                                    <div className="flex items-center gap-5 mb-5">
                                         <div className="w-14 h-14 rounded-2xl bg-brand-50 flex items-center justify-center ring-1 ring-brand-100 shadow-sm shrink-0">
                                             <Table2 className="w-7 h-7 text-brand-600" />
                                         </div>
@@ -269,6 +288,29 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
                                                 )}
                                             </div>
                                         </div>
+                                    </div>
+                                    
+                                    {/* Table Description Input */}
+                                    <div className="flex gap-3">
+                                        <input
+                                            className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all shadow-sm hover:bg-white hover:border-brand-300"
+                                            placeholder={`Add a description for the ${table.name} table...`}
+                                            value={table.description || ''}
+                                            onChange={(e) => updateTableDescription(table.id, e.target.value)}
+                                        />
+                                        <button 
+                                            onClick={() => handleTableAiAutofill(table.id)}
+                                            disabled={!!autofilling}
+                                            className={`px-4 py-2.5 rounded-xl border transition-all flex items-center gap-2 font-bold text-xs uppercase tracking-wide ${
+                                                autofilling === `TABLE-${table.id}`
+                                                ? 'bg-brand-50 text-brand-600 border-brand-200' 
+                                                : 'border-slate-200 bg-white text-slate-500 hover:bg-brand-50 hover:border-brand-200 hover:text-brand-600 hover:shadow-sm'
+                                            }`}
+                                            title="Auto-generate description with AI"
+                                        >
+                                            <Wand2 className={`w-4 h-4 ${autofilling === `TABLE-${table.id}` ? 'animate-spin' : ''}`} />
+                                            {autofilling === `TABLE-${table.id}` ? 'Gen...' : 'AI Gen'}
+                                        </button>
                                     </div>
                                 </div>
                                 
