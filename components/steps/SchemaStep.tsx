@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowRight, ArrowLeft, ChevronRight, Wand2, Database, KeyRound, Link as LinkIcon, Table2, Info, ChevronDown, Loader2, RefreshCw, Sparkles, Bot } from 'lucide-react';
+import { ArrowRight, ArrowLeft, ChevronRight, Wand2, Database, KeyRound, Link as LinkIcon, Table2, Info, ChevronDown, Loader2, RefreshCw, Sparkles, Bot, CheckSquare, Square } from 'lucide-react';
 import { Button, Card } from '../ui/Common';
 import { WizardState, Column, Table } from '../../types';
 import { postgresApi, llmApi, graphApi } from '../../services/api';
@@ -165,6 +165,14 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
     } else {
         setExpandedTableId(null);
     }
+  };
+
+  const areAllSelected = data.tables.length > 0 && data.tables.every(t => t.selected);
+
+  const toggleSelectAll = () => {
+    const newState = !areAllSelected;
+    const updatedTables = data.tables.map(t => ({ ...t, selected: newState }));
+    updateData({ tables: updatedTables });
   };
 
   const updateColumnDescription = (tableId: string, colName: string, desc: string) => {
@@ -337,7 +345,7 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
                         properties: {
                             type: col.type,
                             ...(col.isPrimaryKey ? { is_primary_key: true } : {}),
-                            ...(col.isForeignKey ? { is_foreign_key: true } : {})
+                            ...(col.foreignKeyReference ? { foreign_key_to: col.foreignKeyReference } : {})
                         }
                     }))
                 }))
@@ -396,18 +404,37 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
                 </div>
 
                 {data.tables.length > 0 && (
-                     <button 
-                        onClick={handleBatchTableAutofill}
-                        disabled={isBatchTableLoading}
-                        className="w-full py-2.5 px-4 bg-white border border-brand-200 rounded-xl flex items-center justify-center gap-2 text-sm font-bold text-brand-600 hover:bg-brand-50 hover:shadow-sm transition-all disabled:opacity-50"
-                     >
-                         {isBatchTableLoading ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                         ) : (
-                            <Bot className="w-4 h-4" />
-                         )}
-                         {isBatchTableLoading ? 'Generating Descriptions...' : 'Smart Fill All Descriptions'}
-                     </button>
+                    <div className="flex flex-col gap-3">
+                        <button 
+                            onClick={toggleSelectAll}
+                            className="w-full py-2.5 px-4 bg-white border border-slate-200 rounded-xl flex items-center justify-center gap-2 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all"
+                        >
+                            {areAllSelected ? (
+                                <>
+                                    <Square className="w-4 h-4" />
+                                    Deselect All Tables
+                                </>
+                            ) : (
+                                <>
+                                    <CheckSquare className="w-4 h-4" />
+                                    Select All Tables
+                                </>
+                            )}
+                        </button>
+                        
+                        <button 
+                            onClick={handleBatchTableAutofill}
+                            disabled={isBatchTableLoading}
+                            className="w-full py-2.5 px-4 bg-white border border-brand-200 rounded-xl flex items-center justify-center gap-2 text-sm font-bold text-brand-600 hover:bg-brand-50 hover:shadow-sm transition-all disabled:opacity-50"
+                        >
+                            {isBatchTableLoading ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                                <Bot className="w-4 h-4" />
+                            )}
+                            {isBatchTableLoading ? 'Generating Descriptions...' : 'Smart Fill All Descriptions'}
+                        </button>
+                    </div>
                 )}
             </div>
             

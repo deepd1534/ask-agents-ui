@@ -4,6 +4,7 @@ export interface Column {
   description: string;
   isPrimaryKey?: boolean;
   isForeignKey?: boolean;
+  foreignKeyReference?: string;
 }
 
 export interface Table {
