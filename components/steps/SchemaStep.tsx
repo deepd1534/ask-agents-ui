@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ArrowRight, ArrowLeft, ChevronRight, Wand2, Database, KeyRound, Link as LinkIcon, Table2, Info, ChevronDown, Loader2, RefreshCw, Sparkles, Bot } from 'lucide-react';
 import { Button, Card } from '../ui/Common';
 import { WizardState, Column, Table } from '../../types';
-import { postgresApi } from '../../services/api';
+import { postgresApi, llmApi } from '../../services/api';
 
 interface SchemaStepProps {
   data: WizardState;
@@ -22,6 +22,9 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
   const [isLoadingSchemas, setIsLoadingSchemas] = useState(false);
   const [isLoadingTables, setIsLoadingTables] = useState(false);
   const [loadingColumns, setLoadingColumns] = useState<Set<string>>(new Set());
+  
+  // Cache for AI generated descriptions to persist across column loads
+  const aiMetadataRef = useRef<Record<string, Record<string, string>>>({});
 
   const connectionId = data.connectionId;
 
@@ -67,6 +70,7 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
 
         updateData({ tables: newTables });
         setExpandedTableId(null); // Reset selection
+        aiMetadataRef.current = {}; // Reset AI cache
       } catch (err) {
         console.error('Failed to load tables', err);
       } finally {
@@ -86,7 +90,16 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
 
     try {
       setLoadingColumns(prev => new Set(prev).add(tableId));
-      const columns = await postgresApi.getColumns(connectionId, tableId, selectedSchema);
+      const columnsRaw = await postgresApi.getColumns(connectionId, tableId, selectedSchema);
+      
+      // Merge with AI metadata if available in cache
+      const aiCols = aiMetadataRef.current[tableId];
+      const columns = columnsRaw.map(col => {
+          if (aiCols && aiCols[col.name]) {
+              return { ...col, description: aiCols[col.name] };
+          }
+          return col;
+      });
       
       const updatedTables = data.tables.map(t => 
         t.id === tableId ? { ...t, columns, loaded: true } : t
@@ -159,6 +172,14 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
   const handleAiAutofill = (tableId: string, column: Column) => {
     setAutofilling(`${tableId}-${column.name}`);
     setTimeout(() => {
+        // Check cache first
+        const cached = aiMetadataRef.current[tableId]?.[column.name];
+        if (cached) {
+            updateColumnDescription(tableId, column.name, cached);
+            setAutofilling(null);
+            return;
+        }
+
         let aiText = `Automatically inferred: This represents the ${column.name.replace(/_/g, ' ')} of the ${data.tables.find(t => t.id === tableId)?.name}.`;
         if (column.isPrimaryKey) aiText = "Unique primary identifier.";
         if (column.isForeignKey) aiText = "Reference to external entity.";
@@ -168,16 +189,59 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
     }, 800);
   };
 
-  const handleBatchTableAutofill = () => {
+  const handleBatchTableAutofill = async () => {
+    if (!connectionId || !selectedSchema) return;
+
     setIsBatchTableLoading(true);
-    setTimeout(() => {
-        const updatedTables = data.tables.map(t => ({
-            ...t,
-            description: t.description || generateMockDescription(t.name, 'table')
-        }));
+    try {
+        const response = await llmApi.generateSchemaDescriptions(connectionId, selectedSchema);
+        
+        // 1. Populate Cache
+        response.tables.forEach(t => {
+            const colMap: Record<string, string> = {};
+            t.columns.forEach(c => {
+                colMap[c.name] = c.description;
+            });
+            aiMetadataRef.current[t.name] = colMap;
+        });
+
+        // 2. Update State
+        const updatedTables = data.tables.map(t => {
+            const aiTable = response.tables.find(ait => ait.name === t.name);
+            if (!aiTable) return t;
+
+            let newDesc = t.description;
+            // Only autofill if empty
+            if (!newDesc && aiTable.description) {
+                newDesc = aiTable.description;
+            }
+
+            // If table is loaded, update columns too
+            let newColumns = t.columns;
+            if (t.loaded) {
+                newColumns = t.columns.map(c => {
+                    const aiColDesc = aiMetadataRef.current[t.name]?.[c.name];
+                    // Only autofill if empty
+                    if (aiColDesc && !c.description) {
+                         return { ...c, description: aiColDesc };
+                    }
+                    return c;
+                });
+            }
+
+            return {
+                ...t,
+                description: newDesc,
+                columns: newColumns
+            };
+        });
+
         updateData({ tables: updatedTables });
+    } catch (err) {
+        console.error('Failed to batch generate descriptions', err);
+    } finally {
         setIsBatchTableLoading(false);
-    }, 1500);
+    }
   };
 
   const handleBatchColumnAutofill = (tableId: string) => {
@@ -188,6 +252,10 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
              const updatedColumns = table.columns.map(col => {
                 if (col.description) return col;
                 
+                // Check cache first
+                const cached = aiMetadataRef.current[tableId]?.[col.name];
+                if (cached) return { ...col, description: cached };
+
                 let aiText = `Automatically inferred: This represents the ${col.name.replace(/_/g, ' ')} of the ${table.name}.`;
                 if (col.isPrimaryKey) aiText = "Unique primary identifier.";
                 if (col.isForeignKey) aiText = "Reference to external entity.";
@@ -255,7 +323,7 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
                          ) : (
                             <Bot className="w-4 h-4" />
                          )}
-                         {isBatchTableLoading ? 'Generating...' : 'Smart Fill All Descriptions'}
+                         {isBatchTableLoading ? 'Generating Descriptions...' : 'Smart Fill All Descriptions'}
                      </button>
                 )}
             </div>

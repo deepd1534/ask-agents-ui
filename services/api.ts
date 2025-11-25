@@ -74,3 +74,28 @@ export const postgresApi = {
     }));
   },
 };
+
+export const llmApi = {
+  generateSchemaDescriptions: async (connectionId: string, schemaName: string) => {
+    const response = await fetch(`${API_BASE_URL}/llm/generate_schema_descriptions`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'X-Connection-ID': connectionId
+      },
+      body: JSON.stringify({
+        schema_name: schemaName,
+      }),
+    });
+    return handleResponse<{
+      tables: Array<{
+        name: string;
+        description: string;
+        columns: Array<{
+          name: string;
+          description: string;
+        }>;
+      }>;
+    }>(response);
+  },
+};
