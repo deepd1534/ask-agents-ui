@@ -191,12 +191,14 @@ export const graphApi = {
     return handleResponse<{ message: string; success: boolean }>(response);
   },
 
-  createGraphFromMetadata: async (graphId: string) => {
+  createGraphFromMetadata: async (graphId: string, options?: { enableTextIndexing?: boolean; enableVectorSearch?: boolean }) => {
     const response = await fetch(`${API_BASE_URL}/graph/create_graph_from_metadata`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         graph_id: graphId,
+        enable_text_indexing: options?.enableTextIndexing ?? false,
+        enable_vector_search: options?.enableVectorSearch ?? false,
       }),
     });
     return handleResponse<{ message: string; graph_id: string }>(response);

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Rocket, CheckCircle, Layers, Database, FileText, Check, Sparkles } from 'lucide-react';
+import { ArrowLeft, Rocket, CheckCircle, Layers, Database, FileText, Check, Sparkles, Settings2, Search, BrainCircuit } from 'lucide-react';
 import { Button, Card } from '../ui/Common';
 import { WizardState } from '../../types';
 import { graphApi } from '../../services/api';
@@ -13,16 +13,20 @@ interface ReviewStepProps {
 export const ReviewStep: React.FC<ReviewStepProps> = ({ data, onBack, onComplete }) => {
   const [isCreating, setIsCreating] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
+  const [enableTextIndexing, setEnableTextIndexing] = useState(false);
+  const [enableVectorSearch, setEnableVectorSearch] = useState(false);
 
   const handleCreate = async () => {
     setIsCreating(true);
     try {
-      await graphApi.createGraphFromMetadata(data.orgName);
+      await graphApi.createGraphFromMetadata(data.orgName, {
+        enableTextIndexing,
+        enableVectorSearch
+      });
       setIsCompleted(true);
       onComplete();
     } catch (error) {
       console.error('Failed to create graph', error);
-      // We could add more sophisticated error handling here
       alert('Failed to create graph. Please try again.');
     } finally {
       setIsCreating(false);
@@ -43,129 +47,139 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ data, onBack, onComplete
               </div>
               
               <h2 className="text-4xl font-bold text-slate-900 mb-4 tracking-tight">Graph Created Successfully!</h2>
-              <p className="text-xl text-slate-500 max-w-lg mb-12 leading-relaxed">
-                Your knowledge graph <span className="font-bold text-slate-900">"{data.projectName}"</span> is ready. 
-                {selectedTables.length} tables have been transformed.
+              <p className="text-xl text-slate-500 max-w-lg mx-auto mb-10">
+                  Your knowledge graph has been initialized with {selectedTables.length} tables and {totalColumns} data points.
               </p>
-              
-              <div className="flex gap-4">
-                <Button variant="outline" onClick={() => window.location.reload()} size="lg">Build Another</Button>
-                <Button size="lg" rightIcon={<ArrowLeft className="w-5 h-5 rotate-180" />} className="px-10 shadow-brand-600/30">Explore Graph</Button>
-              </div>
+
+              <Button onClick={() => window.location.reload()} size="lg" className="px-10 shadow-brand-600/30">
+                  Back to Home
+              </Button>
           </div>
-      )
+      );
   }
 
   return (
     <div className="max-w-4xl mx-auto animate-fade-in">
-      <div className="mb-10 text-center">
-        <h2 className="text-3xl font-bold text-slate-900 mb-3">Review & Create Graph</h2>
-        <p className="text-lg text-slate-500">Confirm your settings before generating the ontology.</p>
+      <div className="mb-8">
+        <h2 className="text-3xl font-bold text-slate-900">Review & Build</h2>
+        <p className="text-slate-500 mt-1">Review your configuration before generating the knowledge graph.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-          <Card className="p-0 flex flex-col border-0 shadow-supreme overflow-hidden group">
-            <div className="h-1.5 w-full bg-[#336791]"></div>
-            <div className="p-8 flex items-start gap-6">
-                <div className="p-4 bg-blue-50 rounded-2xl text-[#336791] shrink-0 ring-1 ring-blue-100 group-hover:scale-110 transition-transform duration-300 shadow-sm">
-                    <Database className="w-8 h-8" />
-                </div>
-                <div>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Source</p>
-                    <h3 className="text-xl font-bold text-slate-900 mb-1">PostgreSQL</h3>
-                    <div className="space-y-1 mt-2">
-                        <p className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>
-                            {data.dbHost}:{data.dbPort}
-                        </p>
-                        <p className="text-xs text-slate-400 font-mono bg-slate-100 inline-block px-1.5 py-0.5 rounded">{data.dbName}</p>
-                    </div>
-                </div>
-            </div>
-          </Card>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <Card className="shadow-sm border-slate-200 bg-white/50">
+           <div className="flex flex-col items-center text-center p-4">
+               <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
+                   <Database className="w-6 h-6" />
+               </div>
+               <span className="text-3xl font-bold text-slate-900">{selectedTables.length}</span>
+               <span className="text-sm font-medium text-slate-500">Tables Selected</span>
+           </div>
+        </Card>
 
-          <Card className="p-0 flex flex-col border-0 shadow-supreme overflow-hidden group">
-            <div className="h-1.5 w-full bg-brand-500"></div>
-            <div className="p-8 flex items-start gap-6">
-                <div className="p-4 bg-brand-50 rounded-2xl text-brand-600 shrink-0 ring-1 ring-brand-100 group-hover:scale-110 transition-transform duration-300 shadow-sm">
-                    <Layers className="w-8 h-8" />
-                </div>
-                <div>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Scope</p>
-                    <h3 className="text-xl font-bold text-slate-900 mb-1">{selectedTables.length} Tables</h3>
-                    <div className="space-y-1 mt-2">
-                        <p className="text-sm font-semibold text-slate-700">{totalColumns} Columns mapped</p>
-                        <p className="text-xs text-slate-400">Schema: <span className="font-mono text-slate-500">{data.schemaName || 'public'}</span></p>
-                    </div>
-                </div>
-            </div>
-          </Card>
+        <Card className="shadow-sm border-slate-200 bg-white/50">
+           <div className="flex flex-col items-center text-center p-4">
+               <div className="w-12 h-12 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center mb-3">
+                   <Layers className="w-6 h-6" />
+               </div>
+               <span className="text-3xl font-bold text-slate-900">{totalColumns}</span>
+               <span className="text-sm font-medium text-slate-500">Columns Mapped</span>
+           </div>
+        </Card>
+
+        <Card className="shadow-sm border-slate-200 bg-white/50">
+           <div className="flex flex-col items-center text-center p-4">
+               <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3">
+                   <FileText className="w-6 h-6" />
+               </div>
+               <span className="text-xl font-bold text-slate-900 truncate max-w-full px-2">{data.schemaName}</span>
+               <span className="text-sm font-medium text-slate-500">Target Schema</span>
+           </div>
+        </Card>
       </div>
 
-      <Card className="mb-12 border-0 shadow-supreme overflow-hidden">
-        <div className="bg-gradient-to-r from-slate-50 to-white px-8 py-6 border-b border-slate-100 flex items-center gap-4">
-            <div className="p-2.5 bg-white rounded-xl shadow-sm text-brand-600 border border-slate-100">
-                <FileText className="w-5 h-5" />
-            </div>
-            <h3 className="font-bold text-slate-900 text-lg">Project Summary</h3>
-        </div>
-        <div className="p-8 space-y-6">
-            <div className="grid grid-cols-12 gap-6 pb-6 border-b border-slate-100 last:border-0 last:pb-0">
-                <div className="col-span-4 text-sm font-bold text-slate-500 uppercase tracking-wide pt-1">Organization</div>
-                <div className="col-span-8 text-lg font-semibold text-slate-900">{data.orgName}</div>
-            </div>
-            <div className="grid grid-cols-12 gap-6 pb-6 border-b border-slate-100 last:border-0 last:pb-0">
-                <div className="col-span-4 text-sm font-bold text-slate-500 uppercase tracking-wide pt-1">Project Name</div>
-                <div className="col-span-8 text-lg font-semibold text-slate-900">{data.projectName}</div>
-            </div>
-             <div className="grid grid-cols-12 gap-6">
-                <div className="col-span-4 text-sm font-bold text-slate-500 uppercase tracking-wide pt-2">Included Tables</div>
-                <div className="col-span-8 flex flex-wrap gap-2">
-                    {selectedTables.map(t => (
-                        <span key={t.id} className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium bg-slate-50 text-slate-700 border border-slate-200 shadow-sm hover:border-brand-300 transition-colors cursor-default">
-                            {t.name}
-                        </span>
-                    ))}
-                </div>
-            </div>
-        </div>
-      </Card>
+      <div className="space-y-6 mb-10">
+        <Card className="shadow-supreme border-0">
+           <div className="flex items-center gap-4 border-b border-slate-100 p-6">
+              <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center text-brand-600">
+                  <Settings2 className="w-5 h-5" />
+              </div>
+              <div>
+                  <h3 className="text-lg font-bold text-slate-900">Graph Configuration</h3>
+                  <p className="text-sm text-slate-500">Configure indexing and search capabilities.</p>
+              </div>
+           </div>
+           
+           <div className="p-6 space-y-4">
+              {/* Text Indexing Option */}
+              <label className={`flex items-start gap-4 p-4 rounded-xl border transition-all cursor-pointer ${enableTextIndexing ? 'bg-brand-50/50 border-brand-200' : 'bg-white border-slate-200 hover:border-brand-200'}`}>
+                  <div className="relative flex items-center mt-1">
+                      <input 
+                          type="checkbox" 
+                          checked={enableTextIndexing}
+                          onChange={(e) => setEnableTextIndexing(e.target.checked)}
+                          className="peer h-5 w-5 cursor-pointer appearance-none rounded-md border border-slate-300 transition-all checked:border-brand-600 checked:bg-brand-600 focus:ring-2 focus:ring-brand-500/20"
+                      />
+                      <Check className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white opacity-0 transition-opacity peer-checked:opacity-100" />
+                  </div>
+                  <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                          <Search className="w-4 h-4 text-slate-600" />
+                          <span className="font-bold text-slate-900">Enable Text Indexing</span>
+                      </div>
+                      <p className="text-sm text-slate-500">Creates full-text search indexes on string columns for faster keyword lookup.</p>
+                  </div>
+              </label>
 
-      <div className="flex justify-between items-center pb-8">
-        <Button variant="ghost" onClick={onBack} disabled={isCreating} leftIcon={<ArrowLeft className="w-4 h-4" />}>
+              {/* Vector Search Option (Disabled) */}
+              <label className="flex items-start gap-4 p-4 rounded-xl border border-slate-100 bg-slate-50 cursor-not-allowed opacity-70">
+                  <div className="relative flex items-center mt-1">
+                      <input 
+                          type="checkbox" 
+                          checked={enableVectorSearch}
+                          disabled
+                          className="h-5 w-5 appearance-none rounded-md border border-slate-300 bg-slate-100"
+                      />
+                  </div>
+                  <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                          <BrainCircuit className="w-4 h-4 text-slate-400" />
+                          <span className="font-bold text-slate-500">Enable Vector Search</span>
+                          <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 border border-slate-200 px-1.5 py-0.5 rounded">Coming Soon</span>
+                      </div>
+                      <p className="text-sm text-slate-400">Generates embeddings for content to enable semantic similarity search.</p>
+                  </div>
+              </label>
+           </div>
+        </Card>
+
+        <Card className="shadow-supreme border-0 bg-gradient-to-br from-brand-600 to-brand-700 text-white overflow-hidden relative">
+           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
+           <div className="relative p-8 flex items-center justify-between">
+              <div>
+                  <h3 className="text-2xl font-bold mb-2">Ready to Build?</h3>
+                  <p className="text-brand-100 max-w-md">This process will initialize the graph structure in the database. It may take a few moments.</p>
+              </div>
+              <div className="hidden md:block">
+                  <Rocket className="w-16 h-16 text-white/20 rotate-45" />
+              </div>
+           </div>
+        </Card>
+      </div>
+
+      <div className="flex justify-between pb-8">
+        <Button variant="ghost" onClick={onBack} leftIcon={<ArrowLeft className="w-4 h-4" />}>
           Back
         </Button>
         <Button 
-            size="lg" 
-            onClick={handleCreate} 
-            isLoading={isCreating} 
-            className="px-10 py-4 text-lg shadow-brand-600/40 hover:shadow-brand-600/60"
-            rightIcon={!isCreating && <Rocket className="w-5 h-5" />}
+          onClick={handleCreate} 
+          isLoading={isCreating} 
+          rightIcon={<Rocket className="w-4 h-4" />} 
+          size="lg" 
+          className="px-10 shadow-brand-600/30 bg-brand-600 hover:bg-brand-500 text-white"
         >
-          {isCreating ? 'Building Graph...' : 'Create Graph'}
+          {isCreating ? 'Building Graph...' : 'Build Knowledge Graph'}
         </Button>
       </div>
-
-      {/* Loading Modal Overlay */}
-      {isCreating && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-md flex items-center justify-center">
-            <div className="bg-white rounded-3xl p-12 shadow-2xl flex flex-col items-center animate-fade-in-up max-w-sm w-full mx-4 relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-1.5 bg-slate-100">
-                    <div className="h-full bg-brand-500 animate-[width_2s_ease-in-out_infinite]" style={{ width: '30%' }}></div>
-                </div>
-                
-                <div className="relative w-24 h-24 mb-8">
-                     <div className="absolute inset-0 border-[6px] border-slate-100 rounded-full"></div>
-                     <div className="absolute inset-0 border-[6px] border-brand-600 rounded-full border-t-transparent animate-spin"></div>
-                     <div className="absolute inset-0 flex items-center justify-center">
-                        <Sparkles className="w-10 h-10 text-brand-500 animate-pulse" />
-                     </div>
-                </div>
-                <h3 className="text-2xl font-bold text-slate-900 mb-3">Constructing Graph</h3>
-                <p className="text-slate-500 text-center font-medium leading-relaxed">Analyzing relationships and generating ontology nodes...</p>
-            </div>
-        </div>
-      )}
     </div>
   );
 };
