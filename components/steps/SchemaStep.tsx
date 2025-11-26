@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowRight, ArrowLeft, ChevronRight, Wand2, Database, KeyRound, Link as LinkIcon, Table2, Info, ChevronDown, Loader2, RefreshCw, Sparkles, Bot, CheckSquare, Square } from 'lucide-react';
 import { Button, Card } from '../ui/Common';
@@ -356,11 +357,11 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
     try {
         const selectedTables = data.tables.filter(t => t.selected);
         
-        // Use sanitized project name as the ID
-        const graphId = data.projectName.trim().replace(/\s+/g, '_').toLowerCase();
+        // Use sanitized project name as the initial org_id
+        const graphIdPayload = data.projectName.trim().replace(/\s+/g, '_').toLowerCase();
         
         const payload = {
-            org_id: graphId,
+            org_id: graphIdPayload,
             schema_name: selectedSchema,
             metadata: {
                 database: data.dbName,
@@ -381,7 +382,13 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
             }
         };
 
-        await graphApi.updateGraphSchema(payload);
+        const response = await graphApi.updateGraphSchema(payload);
+        
+        // Store the returned ID from the backend to be used in the next step
+        if (response.id) {
+            updateData({ graphId: response.id });
+        }
+
         onNext();
     } catch (error) {
         console.error("Failed to update graph schema", error);

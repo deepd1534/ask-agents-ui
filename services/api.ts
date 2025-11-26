@@ -1,3 +1,4 @@
+
 import { API_BASE_URL } from '../config';
 import { WizardState, Column } from '../types';
 
@@ -104,6 +105,12 @@ interface GraphUpdatePayload {
   metadata: GraphMetadata;
 }
 
+interface GraphUpdateResponse {
+  id: string;
+  status: string;
+  message?: string;
+}
+
 export const postgresApi = {
   connect: async (details: Pick<WizardState, 'dbHost' | 'dbPort' | 'dbUser' | 'dbPass' | 'dbName'>) => {
     const response = await fetch(`${API_BASE_URL}/postgres/connect`, {
@@ -188,7 +195,7 @@ export const graphApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    return handleResponse<{ message: string; success: boolean }>(response);
+    return handleResponse<GraphUpdateResponse>(response);
   },
 
   createGraphFromMetadata: async (graphId: string, options?: { enableTextIndexing?: boolean; enableVectorSearch?: boolean }) => {

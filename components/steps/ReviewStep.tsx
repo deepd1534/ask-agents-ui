@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { ArrowLeft, Rocket, CheckCircle, Layers, Database, FileText, Check, Sparkles, Settings2, Search, BrainCircuit } from 'lucide-react';
 import { Button, Card } from '../ui/Common';
@@ -19,8 +20,14 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ data, onBack, onComplete
   const handleCreate = async () => {
     setIsCreating(true);
     try {
-      // Use sanitized project name as ID to match SchemaStep
-      const graphId = data.projectName.trim().replace(/\s+/g, '_').toLowerCase();
+      // Use the ID returned from the schema update step
+      const graphId = data.graphId;
+      
+      if (!graphId) {
+        alert('Error: Graph ID not found. Please go back and resave the schema.');
+        setIsCreating(false);
+        return;
+      }
       
       await graphApi.createGraphFromMetadata(graphId, {
         enableTextIndexing,
