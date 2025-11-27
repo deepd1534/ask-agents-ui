@@ -1,4 +1,5 @@
 
+
 export interface Column {
   name: string;
   type: string;
@@ -50,3 +51,42 @@ export enum Step {
 }
 
 export const INITIAL_TABLES: Table[] = [];
+
+// --- Graph Editor Types ---
+
+export type EditorNodeType = 'TECHNICAL' | 'BUSINESS';
+export type TechnicalType = 'TABLE' | 'COLUMN';
+export type BusinessType = 'ENTITY' | 'METRIC' | 'CONCEPT' | 'RULE';
+
+export interface EditorNode {
+  id: string;
+  type: EditorNodeType;
+  subType: TechnicalType | BusinessType;
+  label: string;
+  x: number;
+  y: number;
+  data: {
+    description?: string;
+    dataType?: string; // for columns
+    keyType?: 'PK' | 'FK' | 'NONE'; // for columns
+    category?: string; // for business
+    properties?: Record<string, string>;
+  };
+}
+
+export interface EditorEdge {
+  id: string;
+  source: string;
+  target: string;
+  label: string;
+  type?: 'default' | 'dashed';
+}
+
+export interface EditorState {
+  nodes: EditorNode[];
+  edges: EditorEdge[];
+  selectedNodeId: string | null;
+  selectedEdgeId: string | null;
+  pan: { x: number; y: number };
+  zoom: number;
+}
