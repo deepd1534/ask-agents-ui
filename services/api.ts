@@ -412,7 +412,7 @@ export const graphApi = {
   },
 
   saveGraphDraft: async (payload: GraphEditPayload) => {
-    const response = await fetch(`${API_BASE_URL}/save_graph_draft`, {
+    const response = await fetch(`${API_BASE_URL}/graph/save_graph_draft`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
