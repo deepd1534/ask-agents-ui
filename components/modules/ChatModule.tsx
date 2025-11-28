@@ -239,6 +239,19 @@ export const ChatModule: React.FC = () => {
                     }
                     return msg;
                 }));
+            } else if (event === 'RunError') {
+                setMessages(prev => prev.map(msg => {
+                    if (msg.id === botMsgId) {
+                        const errorMsg = data.content || "An error occurred during execution.";
+                        return { 
+                            ...msg, 
+                            content: msg.content ? `${msg.content}\n\n${errorMsg}` : errorMsg,
+                            isStreaming: false,
+                            error: true 
+                        };
+                    }
+                    return msg;
+                }));
             }
         });
         
