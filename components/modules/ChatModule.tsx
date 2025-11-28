@@ -1,8 +1,17 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Plus, Bot, User, MoreHorizontal, ChevronDown, Loader2, AlertCircle, Clock, Zap, Sparkles, StopCircle, RefreshCw, Copy, Check, BarChart2 } from 'lucide-react';
+import { Send, Plus, Bot, User, MoreHorizontal, ChevronDown, Loader2, AlertCircle, Clock, Zap, Sparkles, StopCircle, RefreshCw, Copy, Check, BarChart2, Hammer, X, Terminal, Code, ChevronRight } from 'lucide-react';
 import { Button } from '../ui/Common';
 import { agentApi, Agent, RunMetrics } from '../../services/api';
+
+interface ToolCall {
+  id: string;
+  name: string;
+  args: Record<string, any>;
+  status: 'running' | 'completed' | 'error';
+  result?: any;
+  duration?: number;
+}
 
 interface Message {
   id: string;
@@ -12,6 +21,7 @@ interface Message {
   isStreaming?: boolean;
   error?: boolean;
   metrics?: RunMetrics;
+  toolCalls?: ToolCall[];
 }
 
 export const ChatModule: React.FC = () => {
@@ -23,6 +33,7 @@ export const ChatModule: React.FC = () => {
   const [isLoadingAgents, setIsLoadingAgents] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [expandedMetricsId, setExpandedMetricsId] = useState<string | null>(null);
+  const [selectedToolCall, setSelectedToolCall] = useState<ToolCall | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const metricsRef = useRef<HTMLDivElement>(null);
@@ -89,6 +100,7 @@ export const ChatModule: React.FC = () => {
     const userText = inputValue;
     setInputValue('');
     setExpandedMetricsId(null); // Close any open metrics
+    setSelectedToolCall(null);
     
     // 1. Add User Message
     const newUserMsg: Message = {
@@ -105,7 +117,8 @@ export const ChatModule: React.FC = () => {
         role: 'assistant',
         content: '',
         timestamp: new Date(),
-        isStreaming: true
+        isStreaming: true,
+        toolCalls: []
     };
 
     setMessages(prev => [...prev, newUserMsg, newBotMsg]);
@@ -122,6 +135,39 @@ export const ChatModule: React.FC = () => {
                         return msg;
                     }));
                 }
+            } else if (event === 'ToolCallStarted') {
+                const tool = data.tool;
+                setMessages(prev => prev.map(msg => {
+                    if (msg.id === botMsgId) {
+                        const newToolCall: ToolCall = {
+                            id: tool.tool_call_id,
+                            name: tool.tool_name,
+                            args: tool.tool_args,
+                            status: 'running'
+                        };
+                        return { ...msg, toolCalls: [...(msg.toolCalls || []), newToolCall] };
+                    }
+                    return msg;
+                }));
+            } else if (event === 'ToolCallCompleted') {
+                const tool = data.tool;
+                setMessages(prev => prev.map(msg => {
+                    if (msg.id === botMsgId) {
+                        const updatedToolCalls = (msg.toolCalls || []).map(tc => {
+                            if (tc.id === tool.tool_call_id) {
+                                return {
+                                    ...tc,
+                                    status: 'completed',
+                                    result: tool.result,
+                                    duration: tool.metrics?.duration
+                                } as ToolCall;
+                            }
+                            return tc;
+                        });
+                        return { ...msg, toolCalls: updatedToolCalls };
+                    }
+                    return msg;
+                }));
             } else if (event === 'RunCompleted') {
                 setMessages(prev => prev.map(msg => {
                     if (msg.id === botMsgId) {
@@ -179,6 +225,7 @@ export const ChatModule: React.FC = () => {
       if (!selectedAgentId) return;
       const agent = agents.find(a => a.id === selectedAgentId);
       setExpandedMetricsId(null);
+      setSelectedToolCall(null);
       setMessages([
         {
             id: Date.now().toString(),
@@ -194,10 +241,10 @@ export const ChatModule: React.FC = () => {
   };
 
   return (
-    <div className="flex h-full bg-slate-50 overflow-hidden">
+    <div className="flex h-full bg-slate-50 overflow-hidden relative">
       
       {/* Chat Sidebar / History */}
-      <div className="w-72 bg-white border-r border-slate-200 flex flex-col shrink-0 z-20">
+      <div className="w-72 bg-white border-r border-slate-200 flex flex-col shrink-0 z-20 hidden md:flex">
         <div className="p-4 border-b border-slate-100">
            <Button 
              className="w-full justify-start gap-3 shadow-brand-600/10 hover:shadow-brand-600/20" 
@@ -286,28 +333,47 @@ export const ChatModule: React.FC = () => {
                ) : (
                    // Assistant Message
                    <div className="flex flex-col gap-2">
-                       {/* Thinking Indicator */}
-                       {msg.isStreaming && (
-                           <div className="flex items-center gap-3 animate-fade-in pl-1 mb-1">
-                               <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center shadow-md shadow-brand-500/20 shrink-0 ring-1 ring-white">
-                                   <Sparkles className="w-3.5 h-3.5 text-white animate-pulse" />
-                               </div>
-                               <div className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-lg shadow-sm">
-                                   <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-600" />
-                                   <span className="text-xs font-bold text-slate-700">Thinking...</span>
-                                   <ChevronDown className="w-3.5 h-3.5 text-slate-400 ml-1" />
-                               </div>
+                       <div className="flex gap-4 animate-fade-in items-start">
+                           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-100 to-white border border-brand-200 flex items-center justify-center shrink-0 shadow-sm mt-1 ring-1 ring-brand-50">
+                               <Bot className="w-5 h-5 text-brand-600" />
                            </div>
-                       )}
+                           
+                           <div className="max-w-[90%] flex flex-col items-start space-y-2">
+                              
+                              {/* Tool Call Pills */}
+                              {msg.toolCalls && msg.toolCalls.length > 0 && (
+                                  <div className="flex flex-col gap-2 mb-1">
+                                      {msg.toolCalls.map((toolCall, idx) => (
+                                          <button 
+                                            key={idx}
+                                            onClick={() => setSelectedToolCall(toolCall)}
+                                            className="flex items-center gap-2 pl-3 pr-4 py-2 bg-slate-900 text-slate-300 rounded-xl text-xs font-mono hover:bg-slate-800 transition-colors shadow-sm border border-slate-800 group w-fit"
+                                          >
+                                              <Hammer className="w-3.5 h-3.5 text-brand-400" />
+                                              <span className="font-bold text-white">{toolCall.status === 'running' ? 'RUNNING TOOL' : 'TOOL CALLED'}</span>
+                                              <span className="text-slate-500">|</span>
+                                              <span className="text-slate-400">{toolCall.name}</span>
+                                              <ChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-white transition-colors ml-1" />
+                                          </button>
+                                      ))}
+                                  </div>
+                              )}
 
-                       {/* Content Bubble */}
-                       {(msg.content || !msg.isStreaming) && (
-                           <div className="flex gap-4 animate-fade-in items-start">
-                               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-100 to-white border border-brand-200 flex items-center justify-center shrink-0 shadow-sm mt-1 ring-1 ring-brand-50">
-                                   <Bot className="w-5 h-5 text-brand-600" />
-                               </div>
-                               
-                               <div className="max-w-[90%] flex flex-col items-start">
+                              {/* Thinking Indicator */}
+                              {msg.isStreaming && (
+                                  <div className="flex items-center gap-3 animate-fade-in pl-1">
+                                      <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center shadow-md shadow-brand-500/20 shrink-0 ring-1 ring-white">
+                                          <Sparkles className="w-3.5 h-3.5 text-white animate-pulse" />
+                                      </div>
+                                      <div className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-lg shadow-sm">
+                                          <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-600" />
+                                          <span className="text-xs font-bold text-slate-700">Thinking...</span>
+                                      </div>
+                                  </div>
+                              )}
+
+                              {/* Content Bubble */}
+                              {(msg.content || (!msg.isStreaming && (!msg.toolCalls || msg.toolCalls.length === 0))) && (
                                   <div className={`px-5 py-3.5 rounded-2xl rounded-tl-sm shadow-sm text-sm leading-relaxed whitespace-pre-wrap
                                     ${msg.error 
                                         ? 'bg-red-50 border border-red-200 text-red-800' 
@@ -319,61 +385,61 @@ export const ChatModule: React.FC = () => {
                                         <span className="inline-block w-1.5 h-4 ml-1 align-middle bg-brand-400 animate-pulse" />
                                     )}
                                   </div>
-                                  
-                                  {/* Actions Bar (Copy & Metrics) */}
-                                  {!msg.isStreaming && !msg.error && (
-                                      <div className="flex items-center gap-1 mt-2 px-1">
+                              )}
+                              
+                              {/* Actions Bar (Copy & Metrics) */}
+                              {!msg.isStreaming && !msg.error && (
+                                  <div className="flex items-center gap-1 px-1">
+                                      <button 
+                                          onClick={() => navigator.clipboard.writeText(msg.content)}
+                                          className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                                          title="Copy to clipboard"
+                                      >
+                                          <Copy className="w-4 h-4" />
+                                      </button>
+                                      
+                                      {msg.metrics && (
                                           <button 
-                                              onClick={() => navigator.clipboard.writeText(msg.content)}
-                                              className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-                                              title="Copy to clipboard"
+                                              onClick={() => toggleMetrics(msg.id)}
+                                              className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 ${expandedMetricsId === msg.id ? 'text-brand-600 bg-brand-50 ring-1 ring-brand-200' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}
+                                              title="View Run Metrics"
                                           >
-                                              <Copy className="w-4 h-4" />
+                                              <BarChart2 className="w-4 h-4" />
                                           </button>
-                                          
-                                          {msg.metrics && (
-                                              <button 
-                                                  onClick={() => toggleMetrics(msg.id)}
-                                                  className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 ${expandedMetricsId === msg.id ? 'text-brand-600 bg-brand-50 ring-1 ring-brand-200' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}
-                                                  title="View Run Metrics"
-                                              >
-                                                  <BarChart2 className="w-4 h-4" />
-                                              </button>
-                                          )}
-                                      </div>
-                                  )}
+                                      )}
+                                  </div>
+                              )}
 
-                                  {/* Detailed Metrics Card */}
-                                  {expandedMetricsId === msg.id && msg.metrics && (
-                                      <div ref={metricsRef} className="mt-2 bg-white text-slate-600 rounded-xl p-4 shadow-xl border border-slate-200 w-64 text-xs animate-fade-in relative z-10 ring-1 ring-slate-100">
-                                          <h4 className="font-bold text-slate-900 text-sm mb-3 border-b border-slate-100 pb-2">Run Metrics</h4>
-                                          <div className="space-y-2">
-                                              <div className="flex justify-between items-center">
-                                                  <span className="text-slate-500">Input Tokens</span>
-                                                  <span className="font-mono font-medium text-slate-900">{msg.metrics.input_tokens.toLocaleString()}</span>
-                                              </div>
-                                              <div className="flex justify-between items-center">
-                                                  <span className="text-slate-500">Output Tokens</span>
-                                                  <span className="font-mono font-medium text-slate-900">{msg.metrics.output_tokens.toLocaleString()}</span>
-                                              </div>
-                                              <div className="flex justify-between items-center border-t border-slate-100 pt-2 mt-2">
-                                                  <span className="text-slate-700 font-bold">Total Tokens</span>
-                                                  <span className="font-mono font-bold text-brand-600">{msg.metrics.total_tokens.toLocaleString()}</span>
-                                              </div>
-                                              <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-100">
-                                                  <span className="text-slate-500">Time To First Token</span>
-                                                  <span className="font-mono text-slate-900">{msg.metrics.time_to_first_token?.toFixed(3)} s</span>
-                                              </div>
-                                              <div className="flex justify-between items-center">
-                                                  <span className="text-slate-500">Run Duration</span>
-                                                  <span className="font-mono text-slate-900">{msg.metrics.duration.toFixed(3)} s</span>
-                                              </div>
+                              {/* Detailed Metrics Card */}
+                              {expandedMetricsId === msg.id && msg.metrics && (
+                                  <div ref={metricsRef} className="mt-2 bg-white text-slate-600 rounded-xl p-4 shadow-xl border border-slate-200 w-64 text-xs animate-fade-in relative z-10 ring-1 ring-slate-100">
+                                      <h4 className="font-bold text-slate-900 text-sm mb-3 border-b border-slate-100 pb-2">Run Metrics</h4>
+                                      <div className="space-y-2">
+                                          <div className="flex justify-between items-center">
+                                              <span className="text-slate-500">Input Tokens</span>
+                                              <span className="font-mono font-medium text-slate-900">{msg.metrics.input_tokens.toLocaleString()}</span>
+                                          </div>
+                                          <div className="flex justify-between items-center">
+                                              <span className="text-slate-500">Output Tokens</span>
+                                              <span className="font-mono font-medium text-slate-900">{msg.metrics.output_tokens.toLocaleString()}</span>
+                                          </div>
+                                          <div className="flex justify-between items-center border-t border-slate-100 pt-2 mt-2">
+                                              <span className="text-slate-700 font-bold">Total Tokens</span>
+                                              <span className="font-mono font-bold text-brand-600">{msg.metrics.total_tokens.toLocaleString()}</span>
+                                          </div>
+                                          <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-100">
+                                              <span className="text-slate-500">Time To First Token</span>
+                                              <span className="font-mono text-slate-900">{msg.metrics.time_to_first_token?.toFixed(3)} s</span>
+                                          </div>
+                                          <div className="flex justify-between items-center">
+                                              <span className="text-slate-500">Run Duration</span>
+                                              <span className="font-mono text-slate-900">{msg.metrics.duration.toFixed(3)} s</span>
                                           </div>
                                       </div>
-                                  )}
-                               </div>
+                                  </div>
+                              )}
                            </div>
-                       )}
+                       </div>
                    </div>
                )}
             </div>
@@ -415,6 +481,73 @@ export const ChatModule: React.FC = () => {
            </div>
         </div>
       </div>
+
+      {/* Tool Details Sidebar */}
+      {selectedToolCall && (
+        <div className="absolute top-0 right-0 h-full w-[400px] bg-[#0f1117] text-slate-300 shadow-2xl z-50 animate-fade-in-left border-l border-slate-800 flex flex-col">
+            <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-[#0f1117]">
+                <h3 className="font-bold text-white text-lg tracking-tight">{selectedToolCall.name}</h3>
+                <button onClick={() => setSelectedToolCall(null)} className="text-slate-500 hover:text-white transition-colors">
+                    <X className="w-5 h-5" />
+                </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto custom-scrollbar-dark p-5 space-y-6">
+                {/* Tool Name */}
+                <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                        <Hammer className="w-3.5 h-3.5" /> Tool Name
+                    </div>
+                    <div className="p-3 rounded-lg bg-[#1e293b] border border-slate-700 font-mono text-sm text-brand-400 font-bold">
+                        {selectedToolCall.name}
+                    </div>
+                </div>
+
+                {/* Tool Args */}
+                <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                        <Terminal className="w-3.5 h-3.5" /> Tool Args
+                    </div>
+                    <div className="p-3 rounded-lg bg-[#1e293b] border border-slate-700 font-mono text-xs text-slate-300 overflow-x-auto">
+                        <pre>{JSON.stringify(selectedToolCall.args, null, 2)}</pre>
+                    </div>
+                </div>
+
+                {/* Metrics */}
+                {selectedToolCall.duration !== undefined && (
+                    <div className="space-y-2">
+                         <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                            <BarChart2 className="w-3.5 h-3.5" /> Tool Metrics
+                        </div>
+                        <div className="p-3 rounded-lg bg-[#1e293b] border border-slate-700">
+                             <div className="flex items-center justify-between text-sm">
+                                <span className="text-slate-400">Duration</span>
+                                <span className="font-mono font-bold text-white">{selectedToolCall.duration.toFixed(4)} ms</span>
+                             </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Tool Result */}
+                <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                        <Code className="w-3.5 h-3.5" /> Tool Result
+                    </div>
+                    <div className="p-3 rounded-lg bg-[#1e293b] border border-slate-700 font-mono text-xs text-slate-300 overflow-x-auto min-h-[100px]">
+                        {selectedToolCall.result ? (
+                             typeof selectedToolCall.result === 'string' ? (
+                                <pre className="whitespace-pre-wrap">{selectedToolCall.result}</pre>
+                             ) : (
+                                <pre>{JSON.stringify(selectedToolCall.result, null, 2)}</pre>
+                             )
+                        ) : (
+                            <span className="text-slate-500 italic">No result available or tool running...</span>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
+      )}
     </div>
   );
 };
