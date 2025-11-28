@@ -24,12 +24,23 @@ interface Message {
   toolCalls?: ToolCall[];
 }
 
+const generateUUID = () => {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        return crypto.randomUUID();
+    }
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+};
+
 export const ChatModule: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState<string>('');
+  const [sessionId, setSessionId] = useState<string>(() => generateUUID());
   const [isLoadingAgents, setIsLoadingAgents] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [expandedMetricsId, setExpandedMetricsId] = useState<string | null>(null);
@@ -125,7 +136,7 @@ export const ChatModule: React.FC = () => {
     setIsTyping(true);
 
     try {
-        await agentApi.runAgent(selectedAgentId, userText, (event, data) => {
+        await agentApi.runAgent(selectedAgentId, userText, sessionId, (event, data) => {
             if (event === 'RunContent') {
                 if (data.content) {
                     setMessages(prev => prev.map(msg => {
@@ -208,6 +219,7 @@ export const ChatModule: React.FC = () => {
       const newAgentId = e.target.value;
       setSelectedAgentId(newAgentId);
       setExpandedMetricsId(null);
+      setSessionId(generateUUID()); // Generate new session ID when switching agents
       
       const agent = agents.find(a => a.id === newAgentId);
       // Reset chat when switching agents
@@ -226,6 +238,7 @@ export const ChatModule: React.FC = () => {
       const agent = agents.find(a => a.id === selectedAgentId);
       setExpandedMetricsId(null);
       setSelectedToolCall(null);
+      setSessionId(generateUUID()); // Generate new session ID for new chat
       setMessages([
         {
             id: Date.now().toString(),

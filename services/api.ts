@@ -1,3 +1,4 @@
+
 import { API_BASE_URL } from '../config';
 import { WizardState, Column } from '../types';
 
@@ -392,10 +393,11 @@ export const agentApi = {
     return handleResponse<Agent[]>(response);
   },
 
-  runAgent: async (agentId: string, message: string, onEvent: (event: string, data: any) => void) => {
+  runAgent: async (agentId: string, message: string, sessionId: string, onEvent: (event: string, data: any) => void) => {
     const formData = new FormData();
     formData.append('message', message);
     formData.append('stream', 'true');
+    formData.append('session_id', sessionId);
 
     const response = await fetch(`${API_BASE_URL}/agents/${agentId}/runs`, {
         method: 'POST',
