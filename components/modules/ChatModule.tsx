@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Plus, Bot, User, MoreHorizontal, ChevronDown, Loader2, AlertCircle, Clock, Zap, Sparkles, StopCircle, RefreshCw, Copy, Check, BarChart2, Hammer, X, Terminal, Code, ChevronRight, Paperclip, ArrowUp, FileText } from 'lucide-react';
+import { Plus, Bot, MoreHorizontal, Loader2, Sparkles, Copy, BarChart2, Hammer, X, Terminal, Code, ChevronRight, Paperclip, ArrowUp, FileText, Check } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Button } from '../ui/Common';
@@ -486,105 +486,97 @@ export const ChatModule: React.FC = () => {
             <div className="max-w-3xl mx-auto pointer-events-auto">
                 <div 
                     className={`
-                        relative bg-white rounded-2xl border border-slate-200 shadow-2xl shadow-slate-200/50 p-4 
-                        transition-all duration-300
-                        ${isTyping ? 'ring-2 ring-brand-500/10 border-brand-200' : 'focus-within:ring-2 focus-within:ring-brand-500/20 focus-within:border-brand-500'}
+                        relative bg-white rounded-2xl border transition-all duration-200 shadow-lg
+                        ${isTyping ? 'border-slate-200 opacity-80' : 'border-slate-200 focus-within:border-brand-500 focus-within:shadow-brand-500/10'}
                     `}
                 >
-                    {files.length > 0 && (
-                        <div className="flex gap-3 overflow-x-auto py-2 mb-2 custom-scrollbar">
-                            {files.map((file, idx) => (
-                                <div key={idx} className="relative group/file flex items-center gap-3 p-2 pr-8 bg-slate-50 border border-slate-200 rounded-xl min-w-[160px] max-w-[220px] shrink-0">
-                                    <div className="w-10 h-10 rounded-lg bg-white border border-slate-200 flex items-center justify-center shrink-0 overflow-hidden">
-                                        {file.type.startsWith('image/') ? (
-                                            <img src={URL.createObjectURL(file)} alt={file.name} className="w-full h-full object-cover" />
-                                        ) : (
-                                            <FileText className="w-5 h-5 text-brand-600" />
-                                        )}
+                    <div className="flex flex-col">
+                        {/* File Previews */}
+                        {files.length > 0 && (
+                            <div className="flex flex-wrap gap-2 px-4 pt-4">
+                                {files.map((file, idx) => (
+                                    <div key={idx} className="flex items-center gap-2 pl-3 pr-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg group transition-all hover:bg-slate-100 hover:border-slate-300">
+                                        <div className="flex flex-col max-w-[150px]">
+                                            <span className="text-xs font-semibold text-slate-700 truncate" title={file.name}>{file.name}</span>
+                                            <span className="text-[10px] text-slate-400 font-mono">{(file.size / 1024).toFixed(0)}KB</span>
+                                        </div>
+                                        <button 
+                                            onClick={() => removeFile(idx)}
+                                            className="p-1 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                        >
+                                            <X className="w-3.5 h-3.5" />
+                                        </button>
                                     </div>
-                                    <div className="flex flex-col min-w-0">
-                                        <span className="text-xs font-bold text-slate-700 truncate block w-full" title={file.name}>{file.name}</span>
-                                        <span className="text-[10px] text-slate-400 font-mono">{(file.size / 1024).toFixed(0)}KB</span>
-                                    </div>
-                                    <button 
-                                        onClick={() => removeFile(idx)}
-                                        className="absolute top-1 right-1 p-1 bg-white rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 border border-transparent hover:border-red-100 transition-all opacity-0 group-hover/file:opacity-100 shadow-sm"
-                                    >
-                                        <X className="w-3 h-3" />
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    )}
+                                ))}
+                            </div>
+                        )}
 
-                    <textarea
-                        ref={textareaRef}
-                        className="w-full bg-transparent border-none focus:ring-0 resize-none text-sm text-slate-900 placeholder:text-slate-400 min-h-[40px] max-h-[200px] overflow-y-auto custom-scrollbar py-1"
-                        placeholder={isLoadingAgents ? "Loading agents..." : "Ask anything about your data..."}
-                        value={inputValue}
-                        onChange={(e) => setInputValue(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        autoFocus
-                        disabled={isTyping || isLoadingAgents || !selectedAgentId}
-                        rows={1}
-                    />
-                    
-                    <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-50">
-                        {/* Left Actions */}
-                        <div className="flex items-center gap-2">
+                        <textarea
+                            ref={textareaRef}
+                            className="w-full bg-transparent border-none focus:ring-0 resize-none text-sm text-slate-900 placeholder:text-slate-400 min-h-[52px] max-h-[200px] overflow-y-auto custom-scrollbar px-4 py-4"
+                            placeholder={isLoadingAgents ? "Loading agents..." : "Ask anything about your data..."}
+                            value={inputValue}
+                            onChange={(e) => setInputValue(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            autoFocus
+                            disabled={isTyping || isLoadingAgents || !selectedAgentId}
+                            rows={1}
+                        />
+                        
+                        <div className="flex items-center justify-between px-3 pb-3">
+                            {/* Left: Attachment */}
                             <button 
                                 onClick={() => fileInputRef.current?.click()}
-                                className="text-slate-400 hover:text-slate-600 p-2 rounded-lg hover:bg-slate-50 transition-colors"
+                                className="text-slate-400 hover:text-brand-600 p-2 rounded-lg hover:bg-slate-50 transition-colors"
                                 title="Attach files"
                             >
-                                <Paperclip className="w-4.5 h-4.5" />
+                                <Paperclip className="w-5 h-5" />
                             </button>
-                        </div>
 
-                        {/* Right Actions */}
-                        <div className="flex items-center gap-3">
-                            {/* Agent Selector */}
-                            <div className="relative" ref={agentMenuRef}>
-                                <button 
-                                    onClick={() => setShowAgentMenu(!showAgentMenu)}
-                                    className="flex items-center gap-2 px-3 py-1.5 bg-brand-50 text-brand-700 rounded-full text-[10px] font-bold uppercase tracking-wider hover:bg-brand-100 transition-colors border border-brand-100"
-                                >
-                                    {selectedAgent?.name || 'Select Agent'}
-                                    <Sparkles className="w-3 h-3" />
-                                </button>
-                                
-                                {/* Agent Dropdown */}
-                                {showAgentMenu && (
-                                    <div className="absolute bottom-full right-0 mb-2 w-56 bg-white rounded-xl shadow-xl border border-slate-200 py-1 overflow-hidden animate-fade-in-up z-50">
-                                        <div className="px-3 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50 border-b border-slate-100">
-                                            Switch Agent
+                            <div className="flex items-center gap-2">
+                                {/* Agent Pill */}
+                                <div className="relative" ref={agentMenuRef}>
+                                    <button 
+                                        onClick={() => setShowAgentMenu(!showAgentMenu)}
+                                        className="flex items-center gap-2 px-3 py-1.5 bg-brand-50 text-brand-700 rounded-full text-[11px] font-bold uppercase tracking-wider hover:bg-brand-100 transition-colors border border-brand-100"
+                                    >
+                                        {selectedAgent?.name || 'Agent'}
+                                        <Sparkles className="w-3 h-3" />
+                                    </button>
+                                    
+                                    {/* Agent Dropdown */}
+                                    {showAgentMenu && (
+                                        <div className="absolute bottom-full right-0 mb-2 w-56 bg-white rounded-xl shadow-xl border border-slate-200 py-1 overflow-hidden animate-fade-in-up z-50">
+                                            <div className="px-3 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50 border-b border-slate-100">
+                                                Switch Agent
+                                            </div>
+                                            {agents.map(agent => (
+                                                <button
+                                                    key={agent.id}
+                                                    onClick={() => handleAgentSelect(agent.id)}
+                                                    className={`w-full text-left px-4 py-2.5 text-xs font-medium hover:bg-slate-50 transition-colors flex items-center justify-between ${selectedAgentId === agent.id ? 'text-brand-600 bg-brand-50/50' : 'text-slate-700'}`}
+                                                >
+                                                    {agent.name}
+                                                    {selectedAgentId === agent.id && <Check className="w-3 h-3" />}
+                                                </button>
+                                            ))}
                                         </div>
-                                        {agents.map(agent => (
-                                            <button
-                                                key={agent.id}
-                                                onClick={() => handleAgentSelect(agent.id)}
-                                                className={`w-full text-left px-4 py-2.5 text-xs font-medium hover:bg-slate-50 transition-colors flex items-center justify-between ${selectedAgentId === agent.id ? 'text-brand-600 bg-brand-50/50' : 'text-slate-700'}`}
-                                            >
-                                                {agent.name}
-                                                {selectedAgentId === agent.id && <Check className="w-3 h-3" />}
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
+                                    )}
+                                </div>
 
-                            {/* Send Button */}
-                            <button
-                                className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-200 ${
-                                (inputValue.trim() || files.length > 0) && !isTyping && selectedAgentId
-                                    ? 'bg-brand-600 text-white shadow-lg shadow-brand-500/30 hover:bg-brand-500 hover:scale-105 active:scale-95' 
-                                    : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                                }`}
-                                disabled={(!inputValue.trim() && files.length === 0) || isTyping || !selectedAgentId}
-                                onClick={handleSend}
-                            >
-                                {isTyping ? <Loader2 className="w-4.5 h-4.5 animate-spin" /> : <ArrowUp className="w-5 h-5" />}
-                            </button>
+                                {/* Send Button */}
+                                <button
+                                    className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-200 ${
+                                    (inputValue.trim() || files.length > 0) && !isTyping && selectedAgentId
+                                        ? 'bg-slate-100 text-slate-900 hover:bg-brand-600 hover:text-white shadow-sm' 
+                                        : 'bg-slate-50 text-slate-300 cursor-not-allowed'
+                                    }`}
+                                    disabled={(!inputValue.trim() && files.length === 0) || isTyping || !selectedAgentId}
+                                    onClick={handleSend}
+                                >
+                                    {isTyping ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowUp className="w-5 h-5" />}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
