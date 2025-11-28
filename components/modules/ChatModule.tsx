@@ -25,6 +25,7 @@ export const ChatModule: React.FC = () => {
   const [expandedMetricsId, setExpandedMetricsId] = useState<string | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const metricsRef = useRef<HTMLDivElement>(null);
 
   // Fetch agents on mount
   useEffect(() => {
@@ -57,6 +58,22 @@ export const ChatModule: React.FC = () => {
 
     fetchAgents();
   }, []);
+
+  // Handle click outside metrics card
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (metricsRef.current && !metricsRef.current.contains(event.target as Node)) {
+        setExpandedMetricsId(null);
+      }
+    };
+
+    if (expandedMetricsId) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [expandedMetricsId]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -205,7 +222,7 @@ export const ChatModule: React.FC = () => {
         {/* Header */}
         <div className="h-16 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-6 sticky top-0 z-10">
            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center border border-brand-100">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-50 to-white border border-brand-100 flex items-center justify-center shadow-sm text-brand-600">
                  <Bot className="w-5 h-5" />
               </div>
               
@@ -269,7 +286,7 @@ export const ChatModule: React.FC = () => {
                ) : (
                    // Assistant Message
                    <div className="flex flex-col gap-2">
-                       {/* Working Indicator */}
+                       {/* Thinking Indicator */}
                        {msg.isStreaming && (
                            <div className="flex items-center gap-3 animate-fade-in pl-1 mb-1">
                                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center shadow-md shadow-brand-500/20 shrink-0 ring-1 ring-white">
@@ -277,7 +294,7 @@ export const ChatModule: React.FC = () => {
                                </div>
                                <div className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-lg shadow-sm">
                                    <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-600" />
-                                   <span className="text-xs font-bold text-slate-700">Working...</span>
+                                   <span className="text-xs font-bold text-slate-700">Thinking...</span>
                                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 ml-1" />
                                </div>
                            </div>
@@ -286,8 +303,8 @@ export const ChatModule: React.FC = () => {
                        {/* Content Bubble */}
                        {(msg.content || !msg.isStreaming) && (
                            <div className="flex gap-4 animate-fade-in items-start">
-                               <div className="w-8 h-8 rounded-full bg-brand-50 border border-brand-100 flex items-center justify-center shrink-0 text-brand-600 shadow-sm mt-1">
-                                   <Bot className="w-4 h-4" />
+                               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-100 to-white border border-brand-200 flex items-center justify-center shrink-0 shadow-sm mt-1 ring-1 ring-brand-50">
+                                   <Bot className="w-5 h-5 text-brand-600" />
                                </div>
                                
                                <div className="max-w-[90%] flex flex-col items-start">
@@ -328,28 +345,28 @@ export const ChatModule: React.FC = () => {
 
                                   {/* Detailed Metrics Card */}
                                   {expandedMetricsId === msg.id && msg.metrics && (
-                                      <div className="mt-2 bg-slate-900 text-slate-200 rounded-xl p-4 shadow-xl border border-slate-700 w-64 text-xs animate-fade-in relative z-10">
-                                          <h4 className="font-bold text-white text-sm mb-3 border-b border-slate-700/60 pb-2">Run Metrics</h4>
+                                      <div ref={metricsRef} className="mt-2 bg-white text-slate-600 rounded-xl p-4 shadow-xl border border-slate-200 w-64 text-xs animate-fade-in relative z-10 ring-1 ring-slate-100">
+                                          <h4 className="font-bold text-slate-900 text-sm mb-3 border-b border-slate-100 pb-2">Run Metrics</h4>
                                           <div className="space-y-2">
                                               <div className="flex justify-between items-center">
-                                                  <span className="text-slate-400">Input Tokens</span>
-                                                  <span className="font-mono font-medium">{msg.metrics.input_tokens.toLocaleString()}</span>
+                                                  <span className="text-slate-500">Input Tokens</span>
+                                                  <span className="font-mono font-medium text-slate-900">{msg.metrics.input_tokens.toLocaleString()}</span>
                                               </div>
                                               <div className="flex justify-between items-center">
-                                                  <span className="text-slate-400">Output Tokens</span>
-                                                  <span className="font-mono font-medium">{msg.metrics.output_tokens.toLocaleString()}</span>
+                                                  <span className="text-slate-500">Output Tokens</span>
+                                                  <span className="font-mono font-medium text-slate-900">{msg.metrics.output_tokens.toLocaleString()}</span>
                                               </div>
-                                              <div className="flex justify-between items-center border-t border-slate-700/60 pt-2 mt-2">
-                                                  <span className="text-slate-300 font-semibold">Total Tokens</span>
-                                                  <span className="font-mono font-bold text-brand-400">{msg.metrics.total_tokens.toLocaleString()}</span>
+                                              <div className="flex justify-between items-center border-t border-slate-100 pt-2 mt-2">
+                                                  <span className="text-slate-700 font-bold">Total Tokens</span>
+                                                  <span className="font-mono font-bold text-brand-600">{msg.metrics.total_tokens.toLocaleString()}</span>
                                               </div>
-                                              <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-700/60">
-                                                  <span className="text-slate-400">Time To First Token</span>
-                                                  <span className="font-mono">{msg.metrics.time_to_first_token?.toFixed(3)} s</span>
+                                              <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-100">
+                                                  <span className="text-slate-500">Time To First Token</span>
+                                                  <span className="font-mono text-slate-900">{msg.metrics.time_to_first_token?.toFixed(3)} s</span>
                                               </div>
                                               <div className="flex justify-between items-center">
-                                                  <span className="text-slate-400">Run Duration</span>
-                                                  <span className="font-mono">{msg.metrics.duration.toFixed(3)} s</span>
+                                                  <span className="text-slate-500">Run Duration</span>
+                                                  <span className="font-mono text-slate-900">{msg.metrics.duration.toFixed(3)} s</span>
                                               </div>
                                           </div>
                                       </div>
