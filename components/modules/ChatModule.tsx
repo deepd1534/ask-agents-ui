@@ -1,6 +1,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Plus, Bot, User, MoreHorizontal, ChevronDown, Loader2, AlertCircle, Clock, Zap, Sparkles, StopCircle, RefreshCw, Copy, Check, BarChart2, Hammer, X, Terminal, Code, ChevronRight } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Button } from '../ui/Common';
 import { agentApi, Agent, RunMetrics } from '../../services/api';
 
@@ -347,7 +349,7 @@ export const ChatModule: React.FC = () => {
                                <Bot className="w-5 h-5 text-brand-600" />
                            </div>
                            
-                           <div className="max-w-[90%] flex flex-col items-start space-y-2">
+                           <div className="flex-1 min-w-0 flex flex-col items-start space-y-2">
                               
                               {/* Tool Call Pills */}
                               {msg.toolCalls && msg.toolCalls.length > 0 && (
@@ -380,15 +382,18 @@ export const ChatModule: React.FC = () => {
                                   </div>
                               )}
 
-                              {/* Content Bubble */}
+                              {/* Content - No bubble, Markdown rendered */}
                               {(msg.content || (!msg.isStreaming && (!msg.toolCalls || msg.toolCalls.length === 0))) && (
-                                  <div className={`px-5 py-3.5 rounded-2xl rounded-tl-sm shadow-sm text-sm leading-relaxed whitespace-pre-wrap
-                                    ${msg.error 
-                                        ? 'bg-red-50 border border-red-200 text-red-800' 
-                                        : 'bg-white border border-slate-200 text-slate-700'
-                                    }`}
+                                  <div className={`text-sm leading-relaxed w-full pt-1
+                                    ${msg.error ? 'text-red-600' : 'text-slate-800'}`}
                                   >
-                                    {msg.content}
+                                    <ReactMarkdown 
+                                        remarkPlugins={[remarkGfm]}
+                                        className="prose prose-sm max-w-none prose-p:leading-relaxed prose-pre:bg-slate-900 prose-pre:text-slate-50 prose-pre:rounded-xl prose-code:text-brand-700 prose-code:bg-brand-50 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none prose-headings:text-slate-900 prose-headings:font-bold prose-a:text-brand-600 prose-strong:text-slate-900 prose-table:w-full prose-table:border-collapse prose-th:text-left prose-th:p-2 prose-th:bg-brand-50 prose-th:text-brand-700 prose-th:border prose-th:border-brand-100 prose-td:p-2 prose-td:border prose-td:border-slate-200 prose-td:bg-white"
+                                    >
+                                        {msg.content}
+                                    </ReactMarkdown>
+                                    
                                     {msg.isStreaming && (
                                         <span className="inline-block w-1.5 h-4 ml-1 align-middle bg-brand-400 animate-pulse" />
                                     )}
@@ -397,7 +402,7 @@ export const ChatModule: React.FC = () => {
                               
                               {/* Actions Bar (Copy & Metrics) */}
                               {!msg.isStreaming && !msg.error && (
-                                  <div className="flex items-center gap-1 px-1">
+                                  <div className="flex items-center gap-1 pt-1 opacity-60 hover:opacity-100 transition-opacity">
                                       <button 
                                           onClick={() => navigator.clipboard.writeText(msg.content)}
                                           className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
