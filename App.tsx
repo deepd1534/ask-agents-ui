@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { Network, LayoutDashboard, MessageSquareText, Settings, LogOut, PanelLeftClose, PanelLeft, ChevronRight } from 'lucide-react';
+import { AtSign, Network, LayoutDashboard, MessageSquareText, Settings, LogOut, PanelLeftClose, PanelLeft, ChevronRight, Home } from 'lucide-react';
 import { GraphBuilderModule } from './components/modules/GraphBuilderModule';
 import { ChatModule } from './components/modules/ChatModule';
+import { LandingPageModule } from './components/modules/LandingPageModule';
 
-type Module = 'GRAPH_BUILDER' | 'CHAT' | 'SETTINGS';
+type Module = 'LANDING' | 'GRAPH_BUILDER' | 'CHAT' | 'SETTINGS';
 
 const App: React.FC = () => {
-  const [activeModule, setActiveModule] = useState<Module>('GRAPH_BUILDER');
+  const [activeModule, setActiveModule] = useState<Module>('LANDING');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   const toggleSidebar = () => setIsSidebarCollapsed(!isSidebarCollapsed);
@@ -27,10 +28,12 @@ const App: React.FC = () => {
              onClick={() => {
                if (isSidebarCollapsed) {
                  toggleSidebar();
+                 setActiveModule('LANDING');
                } else {
-                 setActiveModule('GRAPH_BUILDER');
+                 setActiveModule('LANDING');
                }
              }}
+             title="Back to Home"
            >
                <div className="relative w-10 h-10 shrink-0">
                   <div className="absolute inset-0 rounded-xl bg-slate-900 flex items-center justify-center text-white shadow-lg shadow-slate-200 transition-transform group-hover:scale-105">
@@ -48,7 +51,7 @@ const App: React.FC = () => {
                </div>
 
                <div className={`flex flex-col overflow-hidden transition-all duration-300 ${isSidebarCollapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'}`}>
-                 <span className="font-bold text-lg tracking-tight text-slate-900 leading-none">Graph<span className="text-brand-600">Builder</span></span>
+                 <span className="font-bold text-lg tracking-tight text-slate-900 leading-none">Ask<span className="text-brand-600">Agents</span></span>
                </div>
                
                 {/* Collapse Toggle integrated in header when open */}
@@ -66,6 +69,16 @@ const App: React.FC = () => {
         {/* Nav Items */}
         <div className="flex-1 px-4 py-6 space-y-2 overflow-y-auto custom-scrollbar">
             <SidebarItem 
+              icon={<Home className="w-5 h-5" />} 
+              label="Home" 
+              isActive={activeModule === 'LANDING'} 
+              collapsed={isSidebarCollapsed}
+              onClick={() => setActiveModule('LANDING')}
+            />
+            
+            <div className={`my-4 border-t border-slate-100 mx-2 ${isSidebarCollapsed ? 'opacity-0' : 'opacity-100'}`}></div>
+
+            <SidebarItem 
               icon={<LayoutDashboard className="w-5 h-5" />} 
               label="Graph Builder" 
               isActive={activeModule === 'GRAPH_BUILDER'} 
@@ -73,7 +86,7 @@ const App: React.FC = () => {
               onClick={() => setActiveModule('GRAPH_BUILDER')}
             />
             <SidebarItem 
-              icon={<MessageSquareText className="w-5 h-5" />} 
+              icon={<AtSign className="w-5 h-5" />} 
               label="AI Assistant" 
               isActive={activeModule === 'CHAT'} 
               collapsed={isSidebarCollapsed}
@@ -108,6 +121,9 @@ const App: React.FC = () => {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col h-full overflow-hidden bg-[#f8fafc] relative">
+         {activeModule === 'LANDING' && (
+            <LandingPageModule onNavigate={(module) => setActiveModule(module)} />
+         )}
          {activeModule === 'GRAPH_BUILDER' && <GraphBuilderModule />}
          {activeModule === 'CHAT' && <ChatModule />}
          {activeModule === 'SETTINGS' && (

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ArrowRight, Sparkles, Network } from 'lucide-react';
 import { Button } from '../ui/Common';
 

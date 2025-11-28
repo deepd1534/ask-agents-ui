@@ -1,5 +1,5 @@
 {
-  "name": "Graph Builder Wizard",
-  "description": "A modern, minimalist wizard interface for building knowledge graphs from relational databases.",
+  "name": "Ask Agents",
+  "description": "Unified platform to build knowledge graphs and interact with AI agents.",
   "requestFramePermissions": []
 }

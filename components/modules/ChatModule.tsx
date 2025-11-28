@@ -1,6 +1,5 @@
-
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Bot, MoreHorizontal, Loader2, Sparkles, Copy, BarChart2, Hammer, X, Terminal, Code, ChevronRight, Paperclip, ArrowUp, FileText, Check } from 'lucide-react';
+import { Plus, Bot, MoreHorizontal, Loader2, Sparkles, Copy, BarChart2, Hammer, X, Terminal, Code, ChevronRight, Paperclip, ArrowUp, FileText, Check, PanelLeft, AtSign } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Button } from '../ui/Common';
@@ -47,6 +46,7 @@ export const ChatModule: React.FC = () => {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [expandedMetricsId, setExpandedMetricsId] = useState<string | null>(null);
   const [selectedToolCall, setSelectedToolCall] = useState<ToolCall | null>(null);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(true);
   
   // File Attachment State
   const [files, setFiles] = useState<File[]>([]);
@@ -308,24 +308,30 @@ export const ChatModule: React.FC = () => {
         onChange={handleFileSelect} 
       />
 
-      {/* Chat Sidebar / History - Hidden on mobile */}
-      <div className="w-72 bg-white border-r border-slate-200 flex flex-col shrink-0 z-20 hidden lg:flex">
-        <div className="p-4 border-b border-slate-100">
-           <Button 
-             className="w-full justify-start gap-3 shadow-brand-600/10 hover:shadow-brand-600/20" 
-             onClick={handleNewChat}
-             disabled={!selectedAgentId}
-             leftIcon={<Plus className="w-4 h-4" />}
-           >
-             New Chat
-           </Button>
-        </div>
-        
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-1">
-          <div className="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider">Previous Chats</div>
-          <div className="p-4 text-center text-xs text-slate-400 italic">
-             History not available in this session
-          </div>
+      {/* Chat Sidebar / History */}
+      <div 
+        className={`bg-white border-slate-200 flex flex-col shrink-0 z-20 transition-all duration-300 ease-in-out overflow-hidden
+            ${isHistoryOpen ? 'w-72 border-r' : 'w-0'}
+        `}
+      >
+        <div className="w-72 h-full flex flex-col"> {/* Fixed width container to prevent squishing */}
+            <div className="p-4 border-b border-slate-100">
+            <Button 
+                className="w-full justify-start gap-3 shadow-brand-600/10 hover:shadow-brand-600/20" 
+                onClick={handleNewChat}
+                disabled={!selectedAgentId}
+                leftIcon={<Plus className="w-4 h-4" />}
+            >
+                New Chat
+            </Button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-1">
+            <div className="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider">Previous Chats</div>
+            <div className="p-4 text-center text-xs text-slate-400 italic">
+                History not available in this session
+            </div>
+            </div>
         </div>
       </div>
 
@@ -334,8 +340,18 @@ export const ChatModule: React.FC = () => {
         {/* Simplified Header */}
         <div className="h-14 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-6 sticky top-0 z-10">
            <div className="flex items-center gap-3">
+              <button 
+                onClick={() => setIsHistoryOpen(!isHistoryOpen)}
+                className={`p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors ${!isHistoryOpen ? 'text-brand-600 bg-brand-50' : ''}`}
+                title={isHistoryOpen ? "Collapse sidebar" : "Expand sidebar"}
+              >
+                  <PanelLeft className="w-5 h-5" />
+              </button>
+
+              <div className="h-6 w-px bg-slate-200 mx-1"></div>
+
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-50 to-white border border-brand-100 flex items-center justify-center shadow-sm text-brand-600">
-                 <Bot className="w-5 h-5" />
+                 <AtSign className="w-5 h-5" />
               </div>
               <span className="font-bold text-slate-900">AI Assistant</span>
            </div>
