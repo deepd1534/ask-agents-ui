@@ -499,8 +499,8 @@ export const ChatModule: React.FC = () => {
             <div className="max-w-3xl mx-auto pointer-events-auto">
                 <div 
                     className={`
-                        relative bg-white rounded-2xl border transition-all duration-200 shadow-lg
-                        ${isTyping ? 'border-slate-200 opacity-80' : 'border-slate-200 focus-within:border-brand-500 focus-within:shadow-brand-500/10'}
+                        relative bg-white rounded-2xl border border-slate-200 transition-all duration-200 shadow-lg
+                        ${isTyping ? 'opacity-80' : ''}
                     `}
                 >
                     <div className="flex flex-col">
@@ -526,7 +526,7 @@ export const ChatModule: React.FC = () => {
 
                         <textarea
                             ref={textareaRef}
-                            className="w-full bg-transparent border-none focus:ring-0 resize-none text-sm text-slate-900 placeholder:text-slate-400 min-h-[52px] max-h-[200px] overflow-y-auto custom-scrollbar px-4 py-4"
+                            className="w-full bg-transparent border-none focus:ring-0 focus:outline-none resize-none text-sm text-slate-900 placeholder:text-slate-400 min-h-[52px] max-h-[200px] overflow-y-auto custom-scrollbar px-4 py-4"
                             placeholder={isLoadingAgents ? "Loading agents..." : "Ask anything about your data..."}
                             value={inputValue}
                             onChange={(e) => setInputValue(e.target.value)}
