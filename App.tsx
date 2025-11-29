@@ -1,16 +1,38 @@
+
 import React, { useState } from 'react';
 import { AtSign, Network, LayoutDashboard, MessageSquareText, Settings, LogOut, PanelLeftClose, PanelLeft, ChevronRight, Home } from 'lucide-react';
 import { GraphBuilderModule } from './components/modules/GraphBuilderModule';
 import { ChatModule } from './components/modules/ChatModule';
 import { LandingPageModule } from './components/modules/LandingPageModule';
+import { LoginPage } from './components/auth/LoginPage';
 
 type Module = 'LANDING' | 'GRAPH_BUILDER' | 'CHAT' | 'SETTINGS';
 
 const App: React.FC = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeModule, setActiveModule] = useState<Module>('LANDING');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isChatHistoryOpen, setIsChatHistoryOpen] = useState(true);
+
+  if (!isAuthenticated) {
+      return <LoginPage onLogin={() => setIsAuthenticated(true)} />;
+  }
 
   const toggleSidebar = () => setIsSidebarCollapsed(!isSidebarCollapsed);
+
+  const handleChatSidebarClick = () => {
+    if (activeModule === 'CHAT') {
+      setIsChatHistoryOpen(!isChatHistoryOpen);
+    } else {
+      setActiveModule('CHAT');
+      setIsChatHistoryOpen(true);
+    }
+  };
+
+  const handleLogout = () => {
+      setIsAuthenticated(false);
+      setActiveModule('LANDING');
+  };
 
   return (
     <div className="flex h-screen bg-[#f8fafc] text-slate-900 font-sans selection:bg-brand-200 selection:text-brand-900 overflow-hidden">
@@ -90,7 +112,7 @@ const App: React.FC = () => {
               label="AI Assistant" 
               isActive={activeModule === 'CHAT'} 
               collapsed={isSidebarCollapsed}
-              onClick={() => setActiveModule('CHAT')}
+              onClick={handleChatSidebarClick}
             />
             
             <SidebarItem 
@@ -104,7 +126,11 @@ const App: React.FC = () => {
 
         {/* User / Footer */}
         <div className="p-4 border-t border-slate-100 mb-2">
-            <div className={`flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer group ${isSidebarCollapsed ? 'justify-center' : ''}`}>
+            <div 
+                className={`flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer group ${isSidebarCollapsed ? 'justify-center' : ''}`}
+                onClick={handleLogout}
+                title="Sign Out"
+            >
                 <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-brand-100 to-slate-200 flex items-center justify-center text-slate-600 font-bold text-xs ring-2 ring-white shadow-sm shrink-0">
                     JD
                 </div>
@@ -125,13 +151,19 @@ const App: React.FC = () => {
             <LandingPageModule onNavigate={(module) => setActiveModule(module)} />
          )}
          {activeModule === 'GRAPH_BUILDER' && <GraphBuilderModule />}
-         {activeModule === 'CHAT' && <ChatModule />}
+         {activeModule === 'CHAT' && (
+            <ChatModule 
+              isHistoryOpen={isChatHistoryOpen} 
+              onToggleHistory={() => setIsChatHistoryOpen(!isChatHistoryOpen)} 
+            />
+         )}
          {activeModule === 'SETTINGS' && (
              <div className="flex items-center justify-center h-full text-slate-400 flex-col gap-4 animate-fade-in">
                  <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-sm border border-slate-100">
                     <Settings className="w-10 h-10 text-slate-300" />
                  </div>
                  <p className="font-medium text-slate-500">Settings module coming soon</p>
+                 <button onClick={handleLogout} className="text-brand-600 hover:text-brand-700 font-bold text-sm">Sign Out</button>
              </div>
          )}
       </main>

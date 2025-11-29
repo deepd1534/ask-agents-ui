@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Bot, MoreHorizontal, Loader2, Sparkles, Copy, BarChart2, Hammer, X, Terminal, Code, ChevronRight, Paperclip, ArrowUp, FileText, Check, PanelLeft, MessageSquareText } from 'lucide-react';
+import { Plus, Bot, MoreHorizontal, Loader2, Sparkles, Copy, BarChart2, Hammer, X, Terminal, Code, ChevronRight, Paperclip, ArrowUp, FileText, Check, MessageSquareText } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Button } from '../ui/Common';
@@ -36,7 +36,12 @@ const generateUUID = () => {
     });
 };
 
-export const ChatModule: React.FC = () => {
+interface ChatModuleProps {
+  isHistoryOpen: boolean;
+  onToggleHistory: () => void;
+}
+
+export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleHistory }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -47,7 +52,6 @@ export const ChatModule: React.FC = () => {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [expandedMetricsId, setExpandedMetricsId] = useState<string | null>(null);
   const [selectedToolCall, setSelectedToolCall] = useState<ToolCall | null>(null);
-  const [isHistoryOpen, setIsHistoryOpen] = useState(true);
   
   // File Attachment State
   const [files, setFiles] = useState<File[]>([]);
@@ -375,16 +379,6 @@ export const ChatModule: React.FC = () => {
         {/* Simplified Header */}
         <div className="h-14 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-6 sticky top-0 z-30">
            <div className="flex items-center gap-3">
-              <button 
-                onClick={() => setIsHistoryOpen(!isHistoryOpen)}
-                className={`p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors ${!isHistoryOpen ? 'text-brand-600 bg-brand-50' : ''}`}
-                title={isHistoryOpen ? "Collapse sidebar" : "Expand sidebar"}
-              >
-                  <PanelLeft className="w-5 h-5" />
-              </button>
-
-              <div className="h-6 w-px bg-slate-200 mx-1"></div>
-
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-50 to-white border border-brand-100 flex items-center justify-center shadow-sm text-brand-600">
                  <MessageSquareText className="w-5 h-5" />
               </div>
