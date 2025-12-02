@@ -31,6 +31,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 setIsLoading(false);
                 // For demo purposes, we can pretend signup also logs them in, 
                 // or redirect to signin.
+                // Store a mock token and the email
+                localStorage.setItem('auth_token', 'mock-token');
+                localStorage.setItem('user_id', email);
                 onLogin();
             }, 1000);
         }
@@ -53,7 +56,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
         {/* Developer Bypass Button */}
         <button 
             onClick={() => {
+                const devEmail = 'developer@example.com';
                 localStorage.setItem('auth_token', 'dev-bypass-token');
+                localStorage.setItem('user_id', devEmail);
                 onLogin();
             }}
             className="absolute top-4 left-4 text-[10px] font-mono text-slate-300 hover:text-red-500 border border-transparent hover:border-red-100 px-2 py-1 rounded transition-colors"

@@ -93,6 +93,36 @@ export interface RunMetrics {
   duration: number;
 }
 
+// Config & Session Interfaces
+export interface ConfigResponse {
+  session: {
+    dbs: Array<{
+      db_id: string;
+      tables: string[];
+    }>;
+  };
+}
+
+export interface Session {
+  session_id: string;
+  session_name?: string;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface SessionMessage {
+  role: string;
+  content: string;
+  created_at?: number;
+  tool_calls?: any[];
+  metrics?: any;
+}
+
+export interface SessionData {
+  session_id: string;
+  messages: SessionMessage[];
+}
+
 // Graph API Interfaces
 interface GraphColumnProperties {
   type: string;
@@ -340,14 +370,60 @@ export const authApi = {
     const data = await handleResponse<LoginResponse>(response);
     if (data.access_token) {
         localStorage.setItem('auth_token', data.access_token);
+        // Store user ID (email) for session tracking
+        localStorage.setItem('user_id', username);
     }
     return data;
   },
   logout: () => {
     localStorage.removeItem('auth_token');
+    localStorage.removeItem('user_id');
   },
   isAuthenticated: () => {
     return !!localStorage.getItem('auth_token');
+  },
+  getCurrentUser: () => {
+    return localStorage.getItem('user_id');
+  }
+};
+
+export const configApi = {
+  getConfig: async () => {
+    const response = await fetch(`${API_BASE_URL}/config`, {
+      headers: { ...getAuthHeaders() }
+    });
+    return handleResponse<ConfigResponse>(response);
+  }
+};
+
+export const sessionApi = {
+  getSessions: async (userId: string, dbId: string, table: string) => {
+    const params = new URLSearchParams({
+      type: 'agent',
+      user_id: userId,
+      limit: '20',
+      page: '1',
+      sort_by: 'updated_at',
+      sort_order: 'desc',
+      db_id: dbId,
+      table: table
+    });
+    const response = await fetch(`${API_BASE_URL}/sessions?${params.toString()}`, {
+        headers: { ...getAuthHeaders() }
+    });
+    return handleResponse<Session[]>(response);
+  },
+  getSession: async (sessionId: string, userId: string, dbId: string, table: string) => {
+    const params = new URLSearchParams({
+      type: 'agent',
+      user_id: userId,
+      db_id: dbId,
+      table: table
+    });
+    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}?${params.toString()}`, {
+        headers: { ...getAuthHeaders() }
+    });
+    return handleResponse<SessionData>(response);
   }
 };
 
@@ -452,11 +528,12 @@ export const agentApi = {
     return handleResponse<Agent[]>(response);
   },
 
-  runAgent: async (agentId: string, message: string, sessionId: string, files: File[] | null | undefined, onEvent: (event: string, data: any) => void) => {
+  runAgent: async (agentId: string, message: string, sessionId: string, userId: string, files: File[] | null | undefined, onEvent: (event: string, data: any) => void) => {
     const formData = new FormData();
     formData.append('message', message);
     formData.append('stream', 'true');
     formData.append('session_id', sessionId);
+    formData.append('user_id', userId);
 
     if (files && files.length > 0) {
       files.forEach((file) => {

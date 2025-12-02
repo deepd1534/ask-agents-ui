@@ -1,10 +1,10 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Bot, MoreHorizontal, Loader2, Sparkles, Copy, BarChart2, Hammer, X, Terminal, Code, ChevronRight, Paperclip, ArrowUp, FileText, Check, MessageSquareText, Network, User } from 'lucide-react';
+import { Plus, Bot, MoreHorizontal, Loader2, Sparkles, Copy, BarChart2, Hammer, X, Terminal, Code, ChevronRight, Paperclip, ArrowUp, FileText, Check, MessageSquareText, Network, User, MessageSquare } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Button } from '../ui/Common';
-import { agentApi, Agent, RunMetrics } from '../../services/api';
+import { agentApi, configApi, sessionApi, authApi, Agent, RunMetrics, Session } from '../../services/api';
 import { ExploredGraphModal } from '../modals/ExploredGraphModal';
 
 interface ToolCall {
@@ -42,6 +42,11 @@ interface ChatModuleProps {
   onToggleHistory: () => void;
 }
 
+interface DbConfig {
+  dbId: string;
+  table: string;
+}
+
 export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleHistory }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -53,6 +58,11 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [expandedMetricsId, setExpandedMetricsId] = useState<string | null>(null);
   const [selectedToolCall, setSelectedToolCall] = useState<ToolCall | null>(null);
+  
+  // Chat History State
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [dbConfig, setDbConfig] = useState<DbConfig | null>(null);
+  const [isLoadingSessions, setIsLoadingSessions] = useState(false);
   
   // Graph Modal State
   const [isGraphModalOpen, setIsGraphModalOpen] = useState(false);
@@ -75,16 +85,18 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const agentMenuRef = useRef<HTMLDivElement>(null);
 
-  // Fetch agents on mount
+  // Initialize: Fetch Agents, Config, then Sessions
   useEffect(() => {
-    const fetchAgents = async () => {
+    const initialize = async () => {
         try {
             setIsLoadingAgents(true);
+            
+            // 1. Fetch Agents
             const fetchedAgents = await agentApi.getAgents();
             setAgents(fetchedAgents);
-            
             if (fetchedAgents.length > 0) {
                 setSelectedAgentId(fetchedAgents[0].id);
+                // Initial welcome message (will be cleared if loading a session)
                 setMessages([
                     {
                         id: 'welcome',
@@ -96,16 +108,53 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
             } else {
                 setFetchError('No agents available.');
             }
+
+            // 2. Fetch Config
+            const configData = await configApi.getConfig();
+            if (configData.session?.dbs?.length > 0 && configData.session.dbs[0].tables.length > 0) {
+                const config = {
+                    dbId: configData.session.dbs[0].db_id,
+                    table: configData.session.dbs[0].tables[0]
+                };
+                setDbConfig(config);
+
+                // 3. Fetch Sessions
+                const userId = authApi.getCurrentUser();
+                if (userId) {
+                    setIsLoadingSessions(true);
+                    try {
+                        const sessionsList = await sessionApi.getSessions(userId, config.dbId, config.table);
+                        setSessions(sessionsList);
+                    } catch (err) {
+                        console.error("Failed to fetch sessions", err);
+                    } finally {
+                        setIsLoadingSessions(false);
+                    }
+                }
+            }
+
         } catch (err) {
-            console.error('Failed to fetch agents:', err);
-            setFetchError('Failed to load agents.');
+            console.error('Failed to initialize chat:', err);
+            setFetchError('Failed to load chat resources.');
         } finally {
             setIsLoadingAgents(false);
         }
     };
 
-    fetchAgents();
+    initialize();
   }, []);
+
+  const refreshSessions = async () => {
+      const userId = authApi.getCurrentUser();
+      if (userId && dbConfig) {
+          try {
+              const sessionsList = await sessionApi.getSessions(userId, dbConfig.dbId, dbConfig.table);
+              setSessions(sessionsList);
+          } catch (err) {
+              console.error("Failed to refresh sessions", err);
+          }
+      }
+  };
 
   // Handle click outside metrics card and agent menu
   useEffect(() => {
@@ -205,7 +254,8 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
   };
 
   const handleSend = async () => {
-    if ((!inputValue.trim() && files.length === 0) || !selectedAgentId) return;
+    const userId = authApi.getCurrentUser();
+    if ((!inputValue.trim() && files.length === 0) || !selectedAgentId || !userId) return;
 
     const userText = inputValue;
     const currentFiles = files;
@@ -241,7 +291,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
     setIsTyping(true);
 
     try {
-        await agentApi.runAgent(selectedAgentId, userText, sessionId, currentFiles, (event, data) => {
+        await agentApi.runAgent(selectedAgentId, userText, sessionId, userId, currentFiles, (event, data) => {
             if (event === 'RunContent') {
                 if (data.content) {
                     setMessages(prev => prev.map(msg => {
@@ -295,6 +345,8 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
                     }
                     return msg;
                 }));
+                // Refresh sessions to show the new interaction at the top
+                refreshSessions();
             } else if (event === 'RunError') {
                 setMessages(prev => prev.map(msg => {
                     if (msg.id === botMsgId) {
@@ -359,17 +411,14 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
       setSelectedAgentId(agentId);
       setShowAgentMenu(false);
       setExpandedMetricsId(null);
-      setSessionId(generateUUID()); // Resets session for Sidebar selection
+      
+      // Only reset session if we're not already in a chat
+      // If user switches agent in middle of chat, we keep session ID usually?
+      // For now, prompt implies new chat when selecting agent from menu might be useful, 
+      // but let's keep current session logic if just switching model/agent.
       
       const agent = agents.find(a => a.id === agentId);
-      setMessages([
-        {
-            id: Date.now().toString(),
-            role: 'assistant',
-            content: `Hello! I am ${agent?.name || 'your assistant'}. How can I assist you today?`,
-            timestamp: new Date()
-        }
-      ]);
+      // Don't auto-send a message, just switch context visually if needed
   };
 
   const handleNewChat = () => {
@@ -389,6 +438,40 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
             timestamp: new Date()
         }
       ]);
+  };
+
+  const handleSessionClick = async (sid: string) => {
+      const userId = authApi.getCurrentUser();
+      if (!userId || !dbConfig) return;
+
+      try {
+          // Ideally show loading state for messages
+          const sessionData = await sessionApi.getSession(sid, userId, dbConfig.dbId, dbConfig.table);
+          
+          if (sessionData && sessionData.messages) {
+              const mappedMessages: Message[] = sessionData.messages.map((m: any, idx: number) => ({
+                  id: `hist-${idx}-${m.created_at || Date.now()}`,
+                  role: m.role,
+                  content: m.content || '',
+                  timestamp: new Date(m.created_at ? m.created_at * 1000 : Date.now()), // Assuming unix timestamp in seconds
+                  metrics: m.metrics,
+                  // Map tool calls if stored in history
+                  toolCalls: m.tool_calls?.map((tc: any) => ({
+                      id: tc.tool_call_id || 'unknown',
+                      name: tc.tool_name,
+                      args: tc.tool_args,
+                      status: 'completed',
+                      result: tc.result,
+                      duration: tc.metrics?.duration
+                  }))
+              }));
+              
+              setMessages(mappedMessages);
+              setSessionId(sid);
+          }
+      } catch (err) {
+          console.error("Failed to load session", err);
+      }
   };
 
   const toggleMetrics = (id: string) => {
@@ -460,10 +543,32 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
             </div>
             
             <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-1">
-            <div className="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider">Previous Chats</div>
-            <div className="p-4 text-center text-xs text-slate-400 italic">
-                History not available in this session
-            </div>
+                <div className="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider">Previous Chats</div>
+                
+                {isLoadingSessions ? (
+                    <div className="p-4 flex justify-center">
+                        <Loader2 className="w-5 h-5 text-brand-600 animate-spin" />
+                    </div>
+                ) : sessions.length === 0 ? (
+                    <div className="p-4 text-center text-xs text-slate-400 italic">
+                        No previous chats found.
+                    </div>
+                ) : (
+                    sessions.map((session) => (
+                        <button
+                            key={session.session_id}
+                            onClick={() => handleSessionClick(session.session_id)}
+                            className={`w-full text-left px-3 py-2.5 rounded-lg text-sm flex items-center gap-3 transition-colors group relative
+                                ${sessionId === session.session_id ? 'bg-brand-50 text-brand-700 font-medium' : 'text-slate-700 hover:bg-slate-50'}
+                            `}
+                        >
+                            <MessageSquare className={`w-4 h-4 shrink-0 ${sessionId === session.session_id ? 'text-brand-600' : 'text-slate-400 group-hover:text-slate-600'}`} />
+                            <div className="flex-1 truncate">
+                                {session.session_name || 'Untitled Conversation'}
+                            </div>
+                        </button>
+                    ))
+                )}
             </div>
         </div>
       </div>
