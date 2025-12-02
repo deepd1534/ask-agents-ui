@@ -130,9 +130,11 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
                     setIsLoadingSessions(true);
                     try {
                         const sessionsList = await sessionApi.getSessions(userId, config.dbId, config.table);
-                        setSessions(sessionsList);
+                        // Safely handle if API returns something that isn't an array
+                        setSessions(Array.isArray(sessionsList) ? sessionsList : []);
                     } catch (err) {
                         console.error("Failed to fetch sessions", err);
+                        setSessions([]);
                     } finally {
                         setIsLoadingSessions(false);
                     }
@@ -155,7 +157,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
       if (userId && dbConfig) {
           try {
               const sessionsList = await sessionApi.getSessions(userId, dbConfig.dbId, dbConfig.table);
-              setSessions(sessionsList);
+              setSessions(Array.isArray(sessionsList) ? sessionsList : []);
           } catch (err) {
               console.error("Failed to refresh sessions", err);
           }
@@ -547,7 +549,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
                     <div className="p-4 flex justify-center">
                         <Loader2 className="w-5 h-5 text-brand-600 animate-spin" />
                     </div>
-                ) : sessions.length === 0 ? (
+                ) : !Array.isArray(sessions) || sessions.length === 0 ? (
                     <div className="p-4 text-center text-xs text-slate-400 italic">
                         No previous chats found.
                     </div>
