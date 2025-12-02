@@ -448,26 +448,36 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
       try {
           const sessionData = await sessionApi.getSession(sid, userId, dbConfig.dbId, dbConfig.table);
           
-          if (sessionData && sessionData.messages) {
-              const mappedMessages: Message[] = sessionData.messages.map((m: any, idx: number) => ({
-                  id: `hist-${idx}-${m.created_at || Date.now()}`,
-                  role: m.role,
-                  content: m.content || '',
-                  timestamp: new Date(m.created_at ? m.created_at * 1000 : Date.now()), // Assuming unix timestamp in seconds
-                  metrics: m.metrics,
-                  // Map tool calls if stored in history
-                  toolCalls: m.tool_calls?.map((tc: any) => ({
-                      id: tc.tool_call_id || 'unknown',
-                      name: tc.tool_name,
-                      args: tc.tool_args,
-                      status: 'completed',
-                      result: tc.result,
-                      duration: tc.metrics?.duration
-                  }))
-              }));
+          if (sessionData) {
+              // Set the active session ID for future requests
+              setSessionId(sessionData.session_id);
+
+              // If agent_id is present, switch to that agent
+              if (sessionData.agent_id) {
+                  setSelectedAgentId(sessionData.agent_id);
+              }
+
+              // Map history (use chat_history preferred, fallback to messages)
+              const history = sessionData.chat_history || sessionData.messages || [];
+              const mappedMessages: Message[] = history
+                  .filter((m: any) => m.role !== 'system') // Hide system prompts
+                  .map((m: any, idx: number) => ({
+                      id: `hist-${idx}-${m.created_at || Date.now()}`,
+                      role: m.role,
+                      content: m.content || '',
+                      timestamp: new Date(m.created_at ? m.created_at * 1000 : Date.now()),
+                      metrics: m.metrics,
+                      toolCalls: m.tool_calls?.map((tc: any) => ({
+                          id: tc.tool_call_id || 'unknown',
+                          name: tc.tool_name,
+                          args: tc.tool_args,
+                          status: 'completed',
+                          result: tc.result,
+                          duration: tc.metrics?.duration
+                      }))
+                  }));
               
               setMessages(mappedMessages);
-              setSessionId(sid);
           }
       } catch (err) {
           console.error("Failed to load session", err);
@@ -719,11 +729,11 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
                                           </div>
                                           <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-100">
                                               <span className="text-slate-500">Time To First Token</span>
-                                              <span className="font-mono text-slate-900">{msg.metrics.time_to_first_token?.toFixed(3)} s</span>
+                                              <span className="font-mono text-slate-900">{msg.metrics.time_to_first_token !== undefined ? msg.metrics.time_to_first_token.toFixed(3) + ' s' : 'N/A'}</span>
                                           </div>
                                           <div className="flex justify-between items-center">
                                               <span className="text-slate-500">Run Duration</span>
-                                              <span className="font-mono text-slate-900">{msg.metrics.duration.toFixed(3)} s</span>
+                                              <span className="font-mono text-slate-900">{msg.metrics.duration !== undefined ? msg.metrics.duration.toFixed(3) + ' s' : 'N/A'}</span>
                                           </div>
                                       </div>
                                   </div>

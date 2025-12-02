@@ -89,8 +89,8 @@ export interface RunMetrics {
   input_tokens: number;
   output_tokens: number;
   total_tokens: number;
-  time_to_first_token: number;
-  duration: number;
+  time_to_first_token?: number;
+  duration?: number;
 }
 
 // Config & Session Interfaces
@@ -117,11 +117,32 @@ export interface SessionMessage {
   created_at?: number;
   tool_calls?: any[];
   metrics?: any;
+  from_history?: boolean;
+  stop_after_tool_call?: boolean;
 }
 
 export interface SessionData {
+  user_id?: string;
+  agent_session_id?: string;
   session_id: string;
-  messages: SessionMessage[];
+  session_name?: string;
+  session_summary?: {
+    summary: string;
+    updated_at: string;
+  };
+  session_state?: any;
+  agent_id?: string;
+  total_tokens?: number;
+  agent_data?: {
+    name: string;
+    agent_id: string;
+    model: any;
+  };
+  metrics?: any;
+  chat_history?: SessionMessage[];
+  messages?: SessionMessage[]; // fallback
+  created_at: string | number;
+  updated_at: string | number;
 }
 
 interface SessionsApiResponse {
