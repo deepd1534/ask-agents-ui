@@ -106,8 +106,9 @@ export interface ConfigResponse {
 export interface Session {
   session_id: string;
   session_name?: string;
-  created_at: number;
-  updated_at: number;
+  session_state?: any;
+  created_at: string | number;
+  updated_at: string | number;
 }
 
 export interface SessionMessage {
@@ -121,6 +122,17 @@ export interface SessionMessage {
 export interface SessionData {
   session_id: string;
   messages: SessionMessage[];
+}
+
+interface SessionsApiResponse {
+  data: Session[];
+  meta: {
+    page: number;
+    limit: number;
+    total_pages: number;
+    total_count: number;
+    search_time_ms: number;
+  };
 }
 
 // Graph API Interfaces
@@ -411,7 +423,10 @@ export const sessionApi = {
     const response = await fetch(`${API_BASE_URL}/sessions?${params.toString()}`, {
         headers: { ...getAuthHeaders() }
     });
-    return handleResponse<Session[]>(response);
+    
+    // The API returns a wrapped object { data: [], meta: {} }
+    const result = await handleResponse<SessionsApiResponse>(response);
+    return result.data;
   },
   getSession: async (sessionId: string, userId: string, dbId: string, table: string) => {
     const params = new URLSearchParams({
