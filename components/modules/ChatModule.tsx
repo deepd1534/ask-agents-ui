@@ -3,6 +3,7 @@ import { Plus, Bot, MoreHorizontal, Loader2, Sparkles, Copy, BarChart2, Hammer, 
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Button } from '../ui/Common';
+import { Chart } from '../ui/Chart';
 import { agentApi, configApi, sessionApi, authApi, Agent, RunMetrics, Session } from '../../services/api';
 import { ExploredGraphModal } from '../modals/ExploredGraphModal';
 
@@ -629,33 +630,54 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
                               
                               {/* Tool Call Pills */}
                               {msg.toolCalls && msg.toolCalls.length > 0 && (
-                                  <div className="flex flex-col gap-2 mb-1">
+                                  <div className="flex flex-col gap-2 mb-1 w-full">
                                       {msg.toolCalls.map((toolCall, idx) => {
                                           const isDfsExplore = toolCall.name === 'dfs_explore' && toolCall.status === 'completed';
-                                          return (
-                                              <div key={idx} className="flex flex-wrap items-center gap-2">
-                                                <button 
-                                                    onClick={() => setSelectedToolCall(toolCall)}
-                                                    className="flex items-center gap-2 pl-3 pr-4 py-1.5 bg-white text-slate-600 rounded-xl text-[11px] font-mono hover:border-brand-200 hover:shadow-md transition-all shadow-sm border border-slate-200 group/tool w-fit"
-                                                >
-                                                    <div className="w-4 h-4 rounded bg-brand-50 flex items-center justify-center shrink-0 border border-brand-100">
-                                                        <Hammer className="w-2.5 h-2.5 text-brand-600" />
-                                                    </div>
-                                                    <span className="font-bold text-slate-700">{toolCall.status === 'running' ? 'Running Tool' : 'Tool Called'}</span>
-                                                    <span className="text-slate-300">|</span>
-                                                    <span className="text-brand-600 font-medium">{toolCall.name}</span>
-                                                    <ChevronRight className="w-3 h-3 text-slate-400 group-hover/tool:text-brand-600 transition-colors ml-1" />
-                                                </button>
+                                          const isChart = toolCall.name === 'create_bar_chart' && toolCall.status === 'completed' && toolCall.result;
+                                          
+                                          let chartOptions = null;
+                                          if (isChart) {
+                                            try {
+                                                const parsed = typeof toolCall.result === 'string' ? JSON.parse(toolCall.result) : toolCall.result;
+                                                if (parsed && parsed.option) {
+                                                    chartOptions = parsed.option;
+                                                }
+                                            } catch(e) { console.error("Failed to parse chart options", e); }
+                                          }
 
-                                                {/* DFS Explore Graph Visualization Button */}
-                                                {isDfsExplore && (
-                                                    <button
-                                                        onClick={() => handleOpenGraph(toolCall.result)}
-                                                        className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 text-white rounded-xl text-[11px] font-bold shadow-sm hover:bg-slate-800 hover:scale-105 transition-all animate-fade-in"
+                                          return (
+                                              <div key={idx} className="flex flex-col gap-2 w-full">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <button 
+                                                        onClick={() => setSelectedToolCall(toolCall)}
+                                                        className="flex items-center gap-2 pl-3 pr-4 py-1.5 bg-white text-slate-600 rounded-xl text-[11px] font-mono hover:border-brand-200 hover:shadow-md transition-all shadow-sm border border-slate-200 group/tool w-fit"
                                                     >
-                                                        <Network className="w-3 h-3" />
-                                                        Visualize Graph
+                                                        <div className="w-4 h-4 rounded bg-brand-50 flex items-center justify-center shrink-0 border border-brand-100">
+                                                            <Hammer className="w-2.5 h-2.5 text-brand-600" />
+                                                        </div>
+                                                        <span className="font-bold text-slate-700">{toolCall.status === 'running' ? 'Running Tool' : 'Tool Called'}</span>
+                                                        <span className="text-slate-300">|</span>
+                                                        <span className="text-brand-600 font-medium">{toolCall.name}</span>
+                                                        <ChevronRight className="w-3 h-3 text-slate-400 group-hover/tool:text-brand-600 transition-colors ml-1" />
                                                     </button>
+
+                                                    {/* DFS Explore Graph Visualization Button */}
+                                                    {isDfsExplore && (
+                                                        <button
+                                                            onClick={() => handleOpenGraph(toolCall.result)}
+                                                            className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 text-white rounded-xl text-[11px] font-bold shadow-sm hover:bg-slate-800 hover:scale-105 transition-all animate-fade-in"
+                                                        >
+                                                            <Network className="w-3 h-3" />
+                                                            Visualize Graph
+                                                        </button>
+                                                    )}
+                                                </div>
+
+                                                {/* Chart Rendering */}
+                                                {chartOptions && (
+                                                    <div className="w-full max-w-2xl bg-white rounded-xl border border-slate-200 shadow-sm p-4 animate-fade-in">
+                                                        <Chart options={chartOptions} className="w-full" />
+                                                    </div>
                                                 )}
                                               </div>
                                           );
