@@ -1,20 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Bot, MoreHorizontal, Loader2, Sparkles, Copy, BarChart2, Hammer, X, Terminal, Code, ChevronRight, Paperclip, ArrowUp, FileText, Check, MessageSquareText, Network, User, MessageSquare } from 'lucide-react';
+import { Plus, Bot, MoreHorizontal, Loader2, Sparkles, Copy, BarChart2, Hammer, X, Terminal, Code, Paperclip, ArrowUp, Check, MessageSquareText, User, MessageSquare } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Button } from '../ui/Common';
-import { Chart } from '../ui/Chart';
+import { ToolVisualization, ToolCall } from '../chat/ToolVisualization';
 import { agentApi, configApi, sessionApi, authApi, Agent, RunMetrics, Session } from '../../services/api';
 import { ExploredGraphModal } from '../modals/ExploredGraphModal';
-
-interface ToolCall {
-  id: string;
-  name: string;
-  args: Record<string, any>;
-  status: 'running' | 'completed' | 'error';
-  result?: any;
-  duration?: number;
-}
 
 interface Message {
   id: string;
@@ -628,60 +619,17 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
                            
                            <div className="flex-1 min-w-0 flex flex-col items-start space-y-2">
                               
-                              {/* Tool Call Pills */}
+                              {/* Tool Call Pills and Visualizations */}
                               {msg.toolCalls && msg.toolCalls.length > 0 && (
                                   <div className="flex flex-col gap-2 mb-1 w-full">
-                                      {msg.toolCalls.map((toolCall, idx) => {
-                                          const isDfsExplore = toolCall.name === 'dfs_explore' && toolCall.status === 'completed';
-                                          const isChart = toolCall.name === 'create_bar_chart' && toolCall.status === 'completed' && toolCall.result;
-                                          
-                                          let chartOptions = null;
-                                          if (isChart) {
-                                            try {
-                                                const parsed = typeof toolCall.result === 'string' ? JSON.parse(toolCall.result) : toolCall.result;
-                                                if (parsed && parsed.option) {
-                                                    chartOptions = parsed.option;
-                                                }
-                                            } catch(e) { console.error("Failed to parse chart options", e); }
-                                          }
-
-                                          return (
-                                              <div key={idx} className="flex flex-col gap-2 w-full">
-                                                <div className="flex flex-wrap items-center gap-2">
-                                                    <button 
-                                                        onClick={() => setSelectedToolCall(toolCall)}
-                                                        className="flex items-center gap-2 pl-3 pr-4 py-1.5 bg-white text-slate-600 rounded-xl text-[11px] font-mono hover:border-brand-200 hover:shadow-md transition-all shadow-sm border border-slate-200 group/tool w-fit"
-                                                    >
-                                                        <div className="w-4 h-4 rounded bg-brand-50 flex items-center justify-center shrink-0 border border-brand-100">
-                                                            <Hammer className="w-2.5 h-2.5 text-brand-600" />
-                                                        </div>
-                                                        <span className="font-bold text-slate-700">{toolCall.status === 'running' ? 'Running Tool' : 'Tool Called'}</span>
-                                                        <span className="text-slate-300">|</span>
-                                                        <span className="text-brand-600 font-medium">{toolCall.name}</span>
-                                                        <ChevronRight className="w-3 h-3 text-slate-400 group-hover/tool:text-brand-600 transition-colors ml-1" />
-                                                    </button>
-
-                                                    {/* DFS Explore Graph Visualization Button */}
-                                                    {isDfsExplore && (
-                                                        <button
-                                                            onClick={() => handleOpenGraph(toolCall.result)}
-                                                            className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 text-white rounded-xl text-[11px] font-bold shadow-sm hover:bg-slate-800 hover:scale-105 transition-all animate-fade-in"
-                                                        >
-                                                            <Network className="w-3 h-3" />
-                                                            Visualize Graph
-                                                        </button>
-                                                    )}
-                                                </div>
-
-                                                {/* Chart Rendering */}
-                                                {chartOptions && (
-                                                    <div className="w-full max-w-2xl bg-white rounded-xl border border-slate-200 shadow-sm p-4 animate-fade-in">
-                                                        <Chart options={chartOptions} className="w-full" />
-                                                    </div>
-                                                )}
-                                              </div>
-                                          );
-                                      })}
+                                      {msg.toolCalls.map((toolCall, idx) => (
+                                          <ToolVisualization 
+                                            key={idx}
+                                            toolCall={toolCall}
+                                            onOpenGraph={handleOpenGraph}
+                                            onSelectToolCall={setSelectedToolCall}
+                                          />
+                                      ))}
                                   </div>
                               )}
 
@@ -700,6 +648,13 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
                                   <div className={`text-sm leading-relaxed w-full ${msg.error ? 'text-red-600' : 'text-slate-800'} prose prose-sm max-w-none prose-p:leading-relaxed prose-pre:bg-slate-900 prose-pre:text-slate-50 prose-pre:rounded-xl prose-code:text-brand-700 prose-code:bg-brand-50 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none prose-headings:text-slate-900 prose-headings:font-bold prose-a:text-brand-600 prose-strong:text-slate-900 prose-table:w-full prose-table:border-collapse prose-th:text-left prose-th:p-2 prose-th:bg-brand-50 prose-th:text-brand-700 prose-th:border prose-th:border-brand-100 prose-td:p-2 prose-td:border prose-td:border-slate-200 prose-td:bg-white`}>
                                     <ReactMarkdown 
                                         remarkPlugins={[remarkGfm]}
+                                        components={{
+                                            table: ({ node, ...props }: any) => (
+                                                <div className="overflow-x-auto w-full my-2 rounded-lg border border-slate-200 shadow-sm">
+                                                    <table {...props} />
+                                                </div>
+                                            )
+                                        }}
                                     >
                                         {msg.content}
                                     </ReactMarkdown>
